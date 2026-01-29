@@ -11,6 +11,7 @@ This guide provides detailed instructions on how to install, configure, and use 
     *   [Kubernetes Mode](#kubernetes-mode)
 5.  [Usage](#usage)
 6.  [Architecture & Sandbox Details](#architecture--sandbox-details)
+7.  [MicroVMs (Secure Sandboxing)](#microvms-secure-sandboxing)
 
 ---
 
@@ -46,9 +47,9 @@ The agent is configured via environment variables. Create a `.env` file in the r
 
 ```bash
 # LLM Configuration
-OPENAI_API_KEY=sk-your-openai-key
-GOOGLE_API_KEY=AIza-your-google-key
-MODEL_NAME=ops-4.5 # Options: ops-4.5 (GPT-4), gemini-3.5 (Gemini Pro 1.5)
+LLM_PROVIDER=openai # openai, google, azure, ollama
+LLM_MODEL=gpt-4-turbo-preview
+LLM_API_KEY=sk-...
 
 # Git Configuration (for the agent to commit/push)
 GIT_USERNAME=swe-agent-bot
@@ -62,6 +63,7 @@ SANDBOX_TYPE=local
 # K8s Settings (Only if SANDBOX_TYPE=k8s)
 K8S_NAMESPACE=default
 WORKER_IMAGE=python:3.12-slim # The image used for the worker pods
+K8S_RUNTIME_CLASS= # Optional: Set to 'kata' or 'gvisor' for MicroVMs
 ```
 
 ---
@@ -211,8 +213,40 @@ The agent uses a **Workflow Manager** pattern:
 ### Multi-Session Support
 The agent is fully asynchronous. API requests return immediately, and the workflow runs in a background thread. You can submit multiple tasks simultaneously.
 
-### K8s Sandbox (MicroVMs)
+### K8s Sandbox
 When `SANDBOX_TYPE=k8s`, the agent creates a dedicated Pod for the task. All file operations and git commands are executed inside this Pod via `kubectl exec` equivalents.
 *   **Isolation**: File system is ephemeral (`emptyDir`).
 *   **Security**: The Agent only has access to the Pod it created.
-*   **MicroVMs**: To use MicroVMs (like Firecracker/Kata), configure your Kubernetes cluster with a RuntimeClass (e.g., `kata`) and update the `K8sSandbox` code or Pod spec to request that runtime.
+
+---
+
+## MicroVMs (Secure Sandboxing)
+
+You can run the agent's workers in **MicroVMs** (like Firecracker or gVisor) instead of standard containers. This provides hardware-level isolation, protecting the host and other tenants from malicious code executed during the coding task.
+
+### How it works
+Kubernetes uses `RuntimeClass` to define different container runtimes.
+1.  **Standard**: `runc` (processes on host kernel).
+2.  **MicroVM**: `kata` (Kata Containers) or `runsc` (gVisor).
+
+### Setup
+1.  **Install Runtime**: Ensure your K8s cluster supports the runtime (e.g., install `kata-deploy` or enable GKE Sandbox).
+2.  **Create RuntimeClass**:
+    ```yaml
+    apiVersion: node.k8s.io/v1
+    kind: RuntimeClass
+    metadata:
+      name: kata
+    handler: kata
+    ```
+3.  **Configure Agent**:
+    Set the environment variable `K8S_RUNTIME_CLASS` to the name of your class (e.g., `kata`).
+
+    In `k8s/deployment.yaml`:
+    ```yaml
+    env:
+      - name: K8S_RUNTIME_CLASS
+        value: "kata"
+    ```
+
+When the Agent spawns a worker Pod, it will include `runtimeClassName: kata` in the spec, forcing Kubernetes to wrap that Pod in a MicroVM.

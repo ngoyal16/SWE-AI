@@ -52,6 +52,9 @@ class K8sSandbox(Sandbox):
             }
         }
 
+        if settings.K8S_RUNTIME_CLASS:
+            pod_manifest["spec"]["runtimeClassName"] = settings.K8S_RUNTIME_CLASS
+
         try:
             self.v1.create_namespaced_pod(body=pod_manifest, namespace=self.namespace)
             self._wait_for_pod_ready()

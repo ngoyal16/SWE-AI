@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 from app.sandbox.k8s import K8sSandbox
 from app.sandbox.local import LocalSandbox
+from app.config import settings
 
 class TestSandbox(unittest.TestCase):
 
@@ -11,6 +12,26 @@ class TestSandbox(unittest.TestCase):
         sandbox = K8sSandbox("test-task")
         self.assertEqual(sandbox.pod_name, "swe-agent-worker-test-task")
         mock_v1.assert_called_once()
+
+    @patch("app.sandbox.k8s.kubernetes.config")
+    @patch("app.sandbox.k8s.kubernetes.client.CoreV1Api")
+    def test_k8s_runtime_class(self, mock_v1, mock_config):
+        # Mock settings.K8S_RUNTIME_CLASS
+        with patch.object(settings, 'K8S_RUNTIME_CLASS', 'kata'):
+            sandbox = K8sSandbox("test-runtime")
+            # We need to mock create_namespaced_pod to check the body
+            mock_v1_instance = mock_v1.return_value
+            # Make read_namespaced_pod return Running so wait loop exits
+            mock_pod = MagicMock()
+            mock_pod.status.phase = "Running"
+            mock_v1_instance.read_namespaced_pod.return_value = mock_pod
+
+            sandbox.setup()
+
+            mock_v1_instance.create_namespaced_pod.assert_called_once()
+            args, kwargs = mock_v1_instance.create_namespaced_pod.call_args
+            body = kwargs['body']
+            self.assertEqual(body['spec']['runtimeClassName'], 'kata')
 
     @patch("app.sandbox.k8s.kubernetes.config")
     @patch("app.sandbox.k8s.kubernetes.client.CoreV1Api")
