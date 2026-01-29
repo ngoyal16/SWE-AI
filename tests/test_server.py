@@ -4,7 +4,7 @@ from app.server import app
 
 client = TestClient(app)
 
-@patch("app.agent.run_agent_task")
+@patch("app.agent.run_agent_task_async")
 def test_create_and_get_task(mock_run_task):
     response = client.post("/agent/tasks", json={"goal": "Test goal"})
     assert response.status_code == 200
