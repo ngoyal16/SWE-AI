@@ -5,14 +5,15 @@ from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.tools import Tool
 
 from app.llm import get_llm
-from app.tools import get_tools
-from app.git_tools import get_git_tools
+from app.tools import create_filesystem_tools
+from app.git_tools import create_git_tools
 
 # Define the state of the workflow
 class AgentState(TypedDict):
     task_id: str
     goal: str
     repo_url: Optional[str]
+    workspace_path: str
     plan: Optional[str]
     current_step: int
     review_feedback: Optional[str]
@@ -26,7 +27,6 @@ def planner_node(state: AgentState) -> AgentState:
 
     # In a real scenario, the planner might need to explore the codebase first.
     # For this simplified version, we assume it can generate a high-level plan based on the goal.
-    # Or we can give it 'ls' tool access if needed.
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", "You are a Senior Technical Planner. Your job is to create a detailed, step-by-step plan to accomplish the user's goal in a software repository. The plan should be clear and actionable for a programmer."),
@@ -45,7 +45,9 @@ def planner_node(state: AgentState) -> AgentState:
 def programmer_node(state: AgentState) -> AgentState:
     print(f"[{state['task_id']}] PROGRAMMER: Executing plan...")
     llm = get_llm()
-    tools = get_tools() + get_git_tools()
+
+    # Initialize tools with specific workspace path
+    tools = create_filesystem_tools(state["workspace_path"]) + create_git_tools(state["workspace_path"])
 
     # Context includes the plan and previous feedback
     context_str = f"Plan:\n{state['plan']}\n"
@@ -61,8 +63,6 @@ def programmer_node(state: AgentState) -> AgentState:
     agent = create_tool_calling_agent(llm, tools, prompt)
     agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=15)
 
-    # We run the agent. It should use tools to modify code.
-    # We expect it to stop when it thinks it's done.
     try:
         result = agent_executor.invoke({"goal": state["goal"]})
         output = result.get("output", "")
@@ -79,12 +79,9 @@ def reviewer_node(state: AgentState) -> AgentState:
     print(f"[{state['task_id']}] REVIEWER: Reviewing changes...")
     llm = get_llm()
 
-    # Ideally, we would diff the changes.
-    # For now, we ask the reviewer to assess the situation based on logs/context or by reading files if we gave it tools.
-    # To keep it simple, we'll ask the LLM to assume the role of a reviewer checking if the goal was met based on the 'Programmer's' actions (which we strictly don't see fully here without tool trace, but let's simulate).
-    # A better approach: The reviewer has read access tools.
-
-    tools = [t for t in get_tools() if t.name in ["read_file", "list_files", "run_command"]]
+    # Initialize tools with specific workspace path (Read only access theoretically, but using filesystem tools for now)
+    fs_tools = create_filesystem_tools(state["workspace_path"])
+    tools = [t for t in fs_tools if t.name in ["read_file", "list_files", "run_command"]]
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", "You are a Code Reviewer. Check the workspace to verify if the goal has been met and the code is correct. Use 'read_file' or 'run_command' (e.g. tests) to verify. If everything looks good, respond with 'APPROVED'. If changes are needed, provide detailed feedback."),
@@ -103,13 +100,6 @@ def reviewer_node(state: AgentState) -> AgentState:
             state["status"] = "COMPLETED"
             state["review_feedback"] = None
             state["logs"].append("Reviewer Approved.")
-
-            # Trigger push? The diagram says "Open PR".
-            # We can have a separate 'Publisher' node or do it here.
-            # Let's do a simple push here if approved.
-            # We'd need the push tool.
-            # For now, we assume Programmer did the git operations or we do it now.
-            # Let's assume Programmer commits, but maybe we push here.
             pass
         else:
             state["status"] = "CODING"

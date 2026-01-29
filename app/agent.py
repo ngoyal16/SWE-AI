@@ -1,8 +1,10 @@
 import asyncio
 import logging
+import os
 from typing import List, Dict, Any
 
 from app.workflow import WorkflowManager, AgentState
+from app.config import settings
 
 # Simple in-memory logger/storage
 TASK_LOGS: Dict[str, List[str]] = {}
@@ -20,11 +22,17 @@ async def run_agent_task(task_id: str, goal: str, repo_url: str = ""):
         TASK_STATUS[task_id] = "RUNNING"
         log_message(task_id, f"Starting task: {goal} on repo {repo_url}")
 
+        # Define workspace for this task
+        workspace_path = os.path.join(settings.WORKSPACE_DIR, task_id)
+        os.makedirs(workspace_path, exist_ok=True)
+        log_message(task_id, f"Workspace created at: {workspace_path}")
+
         # Initialize State
         state: AgentState = {
             "task_id": task_id,
             "goal": goal,
             "repo_url": repo_url,
+            "workspace_path": workspace_path,
             "plan": None,
             "current_step": 0,
             "review_feedback": None,
