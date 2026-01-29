@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: swe-agent
+  labels:
+    app: swe-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: swe-agent
+  template:
+    metadata:
+      labels:
+        app: swe-agent
+    spec:
+      containers:
+      - name: swe-agent
+        image: swe-agent:latest # Replace with your registry/image:tag
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+        env:
+        - name: MODEL_NAME
+          value: "gemini-3.5" # or ops-4.5
+        - name: GOOGLE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: swe-agent-secrets
+              key: google-api-key
+              optional: true
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: swe-agent-secrets
+              key: openai-api-key
+              optional: true
+        volumeMounts:
+        - name: workspace-volume
+          mountPath: /app/workspace
+      volumes:
+      - name: workspace-volume
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: swe-agent-service
+spec:
+  selector:
+    app: swe-agent
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: ClusterIP
