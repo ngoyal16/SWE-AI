@@ -1,9 +1,12 @@
 import asyncio
 import logging
-import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+import concurrent.futures
 
 from app.workflow import WorkflowManager, AgentState
+from app.sandbox.base import Sandbox
+from app.sandbox.local import LocalSandbox
+from app.sandbox.k8s import K8sSandbox
 from app.config import settings
 
 # Simple in-memory logger/storage
@@ -11,28 +14,50 @@ TASK_LOGS: Dict[str, List[str]] = {}
 TASK_STATUS: Dict[str, str] = {}
 TASK_RESULTS: Dict[str, str] = {}
 
+# Registry for active sandboxes
+ACTIVE_SANDBOXES: Dict[str, Sandbox] = {}
+
 def log_message(task_id: str, message: str):
     if task_id not in TASK_LOGS:
         TASK_LOGS[task_id] = []
     TASK_LOGS[task_id].append(message)
     print(f"[Task {task_id}] {message}")
 
-async def run_agent_task(task_id: str, goal: str, repo_url: str = ""):
+async def run_agent_task_async(task_id: str, goal: str, repo_url: str):
+    """
+    Wrapper to run the blocking workflow in a thread pool executor
+    to prevent blocking the asyncio event loop.
+    """
+    loop = asyncio.get_running_loop()
+    # Use a ThreadPoolExecutor to run the synchronous workflow logic
+    with concurrent.futures.ThreadPoolExecutor() as pool:
+        await loop.run_in_executor(pool, run_agent_task_sync, task_id, goal, repo_url)
+
+def run_agent_task_sync(task_id: str, goal: str, repo_url: str = ""):
+    # This function contains blocking calls (subprocess, k8s client, synchronous LLM invokes)
+    # It must be run in a separate thread.
+    sandbox = None
     try:
         TASK_STATUS[task_id] = "RUNNING"
         log_message(task_id, f"Starting task: {goal} on repo {repo_url}")
 
-        # Define workspace for this task
-        workspace_path = os.path.join(settings.WORKSPACE_DIR, task_id)
-        os.makedirs(workspace_path, exist_ok=True)
-        log_message(task_id, f"Workspace created at: {workspace_path}")
+        # Initialize Sandbox
+        if settings.SANDBOX_TYPE == "k8s":
+            sandbox = K8sSandbox(task_id)
+        else:
+            sandbox = LocalSandbox(task_id)
+
+        log_message(task_id, f"Setting up sandbox ({settings.SANDBOX_TYPE})...")
+        sandbox.setup()
+        ACTIVE_SANDBOXES[task_id] = sandbox
+        log_message(task_id, "Sandbox ready.")
 
         # Initialize State
         state: AgentState = {
             "task_id": task_id,
             "goal": goal,
             "repo_url": repo_url,
-            "workspace_path": workspace_path,
+            "workspace_path": sandbox.get_root_path(),
             "plan": None,
             "current_step": 0,
             "review_feedback": None,
@@ -40,8 +65,9 @@ async def run_agent_task(task_id: str, goal: str, repo_url: str = ""):
             "logs": []
         }
 
+        # Manager runs the loop synchronously now
         manager = WorkflowManager()
-        final_state = await manager.run_workflow(state)
+        final_state = manager.run_workflow_sync(state)
 
         # Merge logs
         for log in final_state["logs"]:
@@ -59,6 +85,12 @@ async def run_agent_task(task_id: str, goal: str, repo_url: str = ""):
         log_message(task_id, f"Task failed: {str(e)}")
         import traceback
         traceback.print_exc()
+    finally:
+        if sandbox:
+            log_message(task_id, "Tearing down sandbox...")
+            sandbox.teardown()
+            if task_id in ACTIVE_SANDBOXES:
+                del ACTIVE_SANDBOXES[task_id]
 
 class AgentManager:
     """Singleton to manage background tasks"""
@@ -73,8 +105,8 @@ class AgentManager:
         import uuid
         task_id = str(uuid.uuid4())
         TASK_STATUS[task_id] = "QUEUED"
-        # Fire and forget async task
-        asyncio.create_task(run_agent_task(task_id, goal, repo_url))
+        # Fire and forget async task which wraps the sync execution
+        asyncio.create_task(run_agent_task_async(task_id, goal, repo_url))
         return task_id
 
     def get_task_status(self, task_id: str) -> Dict[str, Any]:
@@ -84,3 +116,6 @@ class AgentManager:
             "logs": TASK_LOGS.get(task_id, []),
             "result": TASK_RESULTS.get(task_id)
         }
+
+    def get_sandbox(self, task_id: str) -> Optional[Sandbox]:
+        return ACTIVE_SANDBOXES.get(task_id)

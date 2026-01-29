@@ -3,7 +3,7 @@ import os
 import shutil
 import unittest
 from unittest.mock import MagicMock, patch
-from app.agent import run_agent_task, TASK_STATUS
+from app.agent import run_agent_task_sync, TASK_STATUS
 from app.config import settings
 
 class TestMultiSession(unittest.TestCase):
@@ -22,23 +22,14 @@ class TestMultiSession(unittest.TestCase):
         mock_llm = MagicMock()
         mock_get_llm.return_value = mock_llm
 
-        # We need to simulate the agent actually writing files to test isolation
-        # But since we mock the executor, the tools won't run via the LLM.
-        # We can simulate the side effects in the agent executor invoke return or by manually verifying the path setup.
-
-        # Let's verify that run_agent_task creates the directories correctly.
-
-        # Mocking the workflow manager to avoid running the full loop,
-        # but we want to check if the state received has the correct workspace path.
-
         task1_id = "task-1"
         task2_id = "task-2"
 
-        # We'll use a side effect on WorkflowManager.run_workflow to verify state
+        # We'll use a side effect on WorkflowManager.run_workflow_sync to verify state
         with patch("app.agent.WorkflowManager") as MockManager:
             mock_instance = MockManager.return_value
 
-            async def run_workflow_side_effect(state):
+            def run_workflow_side_effect(state):
                 # Simulate doing work in the workspace
                 path = state["workspace_path"]
                 os.makedirs(path, exist_ok=True)
@@ -49,11 +40,11 @@ class TestMultiSession(unittest.TestCase):
                 state["logs"] = ["Done"]
                 return state
 
-            mock_instance.run_workflow.side_effect = run_workflow_side_effect
+            mock_instance.run_workflow_sync.side_effect = run_workflow_side_effect
 
-            # Run tasks
-            asyncio.run(run_agent_task(task1_id, "Goal 1"))
-            asyncio.run(run_agent_task(task2_id, "Goal 2"))
+            # Run tasks directly via sync method (since we test logic, not async behavior here)
+            run_agent_task_sync(task1_id, "Goal 1")
+            run_agent_task_sync(task2_id, "Goal 2")
 
             # Verify isolation
             path1 = os.path.join(settings.WORKSPACE_DIR, task1_id)

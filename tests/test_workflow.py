@@ -60,10 +60,12 @@ class TestWorkflow(unittest.TestCase):
             "current_step": 0,
             "review_feedback": None,
             "status": "PLANNING",
-            "logs": []
+            "logs": [],
+            "workspace_path": "/tmp/test"
         }
 
-        final_state = asyncio.run(manager.run_workflow(initial_state))
+        # Updated to call sync method (simulating what run_in_executor does)
+        final_state = manager.run_workflow_sync(initial_state)
 
         self.assertEqual(final_state["status"], "COMPLETED")
         self.assertEqual(mock_planner.call_count, 1)

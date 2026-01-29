@@ -20,13 +20,19 @@ class AgentState(TypedDict):
     status: str # "PLANNING", "CODING", "REVIEWING", "COMPLETED", "FAILED"
     logs: List[str]
 
+def get_active_sandbox(task_id: str):
+    # Retrieve the sandbox from the AgentManager (circular import workaround or registry pattern)
+    from app.agent import AgentManager
+    manager = AgentManager()
+    sandbox = manager.get_sandbox(task_id)
+    if not sandbox:
+        raise ValueError(f"No active sandbox found for task {task_id}")
+    return sandbox
+
 # --- PLANNER AGENT ---
 def planner_node(state: AgentState) -> AgentState:
     print(f"[{state['task_id']}] PLANNER: Generating plan...")
     llm = get_llm()
-
-    # In a real scenario, the planner might need to explore the codebase first.
-    # For this simplified version, we assume it can generate a high-level plan based on the goal.
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", "You are a Senior Technical Planner. Your job is to create a detailed, step-by-step plan to accomplish the user's goal in a software repository. The plan should be clear and actionable for a programmer."),
@@ -46,24 +52,25 @@ def programmer_node(state: AgentState) -> AgentState:
     print(f"[{state['task_id']}] PROGRAMMER: Executing plan...")
     llm = get_llm()
 
-    # Initialize tools with specific workspace path
-    tools = create_filesystem_tools(state["workspace_path"]) + create_git_tools(state["workspace_path"])
-
-    # Context includes the plan and previous feedback
-    context_str = f"Plan:\n{state['plan']}\n"
-    if state["review_feedback"]:
-        context_str += f"\nReview Feedback (Fix these issues):\n{state['review_feedback']}\n"
-
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are a Skilled Software Engineer. You have access to tools to modify the file system and run git commands. Follow the plan to implement the requested changes. If there is review feedback, address it."),
-        ("human", f"Goal: {{goal}}\nContext:\n{context_str}\n\nExecute the necessary changes. When finished with the current iteration of changes, simply respond with 'CHANGES_COMPLETE'."),
-        ("placeholder", "{agent_scratchpad}"),
-    ])
-
-    agent = create_tool_calling_agent(llm, tools, prompt)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=15)
-
     try:
+        sandbox = get_active_sandbox(state["task_id"])
+        # Initialize tools with specific sandbox
+        tools = create_filesystem_tools(sandbox) + create_git_tools(sandbox)
+
+        # Context includes the plan and previous feedback
+        context_str = f"Plan:\n{state['plan']}\n"
+        if state["review_feedback"]:
+            context_str += f"\nReview Feedback (Fix these issues):\n{state['review_feedback']}\n"
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "You are a Skilled Software Engineer. You have access to tools to modify the file system and run git commands. Follow the plan to implement the requested changes. If there is review feedback, address it."),
+            ("human", f"Goal: {{goal}}\nContext:\n{context_str}\n\nExecute the necessary changes. When finished with the current iteration of changes, simply respond with 'CHANGES_COMPLETE'."),
+            ("placeholder", "{agent_scratchpad}"),
+        ])
+
+        agent = create_tool_calling_agent(llm, tools, prompt)
+        agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=15)
+
         result = agent_executor.invoke({"goal": state["goal"]})
         output = result.get("output", "")
         state["logs"].append(f"Programmer output: {output}")
@@ -79,20 +86,20 @@ def reviewer_node(state: AgentState) -> AgentState:
     print(f"[{state['task_id']}] REVIEWER: Reviewing changes...")
     llm = get_llm()
 
-    # Initialize tools with specific workspace path (Read only access theoretically, but using filesystem tools for now)
-    fs_tools = create_filesystem_tools(state["workspace_path"])
-    tools = [t for t in fs_tools if t.name in ["read_file", "list_files", "run_command"]]
-
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are a Code Reviewer. Check the workspace to verify if the goal has been met and the code is correct. Use 'read_file' or 'run_command' (e.g. tests) to verify. If everything looks good, respond with 'APPROVED'. If changes are needed, provide detailed feedback."),
-        ("human", "Goal: {goal}\nPlan: {plan}\n\nVerify the changes."),
-         ("placeholder", "{agent_scratchpad}"),
-    ])
-
-    agent = create_tool_calling_agent(llm, tools, prompt)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=5)
-
     try:
+        sandbox = get_active_sandbox(state["task_id"])
+        fs_tools = create_filesystem_tools(sandbox)
+        tools = [t for t in fs_tools if t.name in ["read_file", "list_files", "run_command"]]
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "You are a Code Reviewer. Check the workspace to verify if the goal has been met and the code is correct. Use 'read_file' or 'run_command' (e.g. tests) to verify. If everything looks good, respond with 'APPROVED'. If changes are needed, provide detailed feedback."),
+            ("human", "Goal: {goal}\nPlan: {plan}\n\nVerify the changes."),
+             ("placeholder", "{agent_scratchpad}"),
+        ])
+
+        agent = create_tool_calling_agent(llm, tools, prompt)
+        agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=5)
+
         result = agent_executor.invoke({"goal": state["goal"], "plan": state["plan"]})
         output = result.get("output", "")
 
@@ -117,10 +124,10 @@ class WorkflowManager:
     def __init__(self):
         pass
 
-    async def run_workflow(self, state: AgentState):
+    def run_workflow_sync(self, state: AgentState):
         """
-        Manually orchestration the loop since we aren't using LangGraph fully yet
-        to avoid complexity/dependency issues in this environment.
+        Runs the workflow synchronously. This should be called from a separate thread
+        to avoid blocking the main asyncio loop.
         """
         state["status"] = "PLANNING"
 

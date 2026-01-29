@@ -13,4 +13,9 @@ class Config:
     GIT_EMAIL = os.getenv("GIT_EMAIL", "swe-agent@example.com")
     GIT_TOKEN = os.getenv("GIT_TOKEN", "")
 
+    # Sandbox configuration
+    SANDBOX_TYPE = os.getenv("SANDBOX_TYPE", "local") # local or k8s
+    K8S_NAMESPACE = os.getenv("K8S_NAMESPACE", "default")
+    WORKER_IMAGE = os.getenv("WORKER_IMAGE", "swe-agent-worker:latest") # Image for the worker pod
+
 settings = Config()
