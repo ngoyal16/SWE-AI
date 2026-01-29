@@ -4,18 +4,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    # Legacy Support (to be deprecated or mapped)
-    # MODEL_NAME is still used if specific provider config isn't set
+    # Legacy Support
     MODEL_NAME = os.getenv("MODEL_NAME", "ops-4.5")
 
     # New Dynamic LLM Configuration
-    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").lower() # openai, google, azure, ollama
-    LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4-turbo-preview") # The specific model name
-    LLM_BASE_URL = os.getenv("LLM_BASE_URL", "") # For local LLMs or Azure
-    LLM_DEPLOYMENT = os.getenv("LLM_DEPLOYMENT", "") # For Azure
-    LLM_API_KEY = os.getenv("LLM_API_KEY", "") # Generic key (or use specific env vars below)
+    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").lower()
+    LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4-turbo-preview")
+    LLM_BASE_URL = os.getenv("LLM_BASE_URL", "")
+    LLM_DEPLOYMENT = os.getenv("LLM_DEPLOYMENT", "")
+    LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 
-    # Specific API Keys (backward compat + standard env vars)
     API_KEY_OPENAI = os.getenv("OPENAI_API_KEY") or os.getenv("LLM_API_KEY")
     API_KEY_GOOGLE = os.getenv("GOOGLE_API_KEY") or os.getenv("LLM_API_KEY")
     API_KEY_AZURE = os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("LLM_API_KEY")
@@ -27,8 +25,12 @@ class Config:
     GIT_TOKEN = os.getenv("GIT_TOKEN", "")
 
     # Sandbox configuration
-    SANDBOX_TYPE = os.getenv("SANDBOX_TYPE", "local") # local or k8s
+    SANDBOX_TYPE = os.getenv("SANDBOX_TYPE", "local")
     K8S_NAMESPACE = os.getenv("K8S_NAMESPACE", "default")
-    WORKER_IMAGE = os.getenv("WORKER_IMAGE", "swe-agent-worker:latest") # Image for the worker pod
+    WORKER_IMAGE = os.getenv("WORKER_IMAGE", "swe-agent-worker:latest")
+
+    # Redis configuration
+    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    STORAGE_TYPE = os.getenv("STORAGE_TYPE", "file") # file or redis
 
 settings = Config()

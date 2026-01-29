@@ -3,9 +3,9 @@ import os
 import shutil
 import unittest
 from unittest.mock import MagicMock, patch
-from app.agent import run_agent_task_sync
+from app.worker import run_agent_task_sync
 from app.config import settings
-from app.storage import Storage, storage
+from app.storage import FileStorage, storage
 
 class TestMultiSession(unittest.TestCase):
 
@@ -14,11 +14,12 @@ class TestMultiSession(unittest.TestCase):
         if os.path.exists(settings.WORKSPACE_DIR):
             shutil.rmtree(settings.WORKSPACE_DIR)
         os.makedirs(settings.WORKSPACE_DIR, exist_ok=True)
-        # Re-init storage for test
-        storage.data_dir = os.path.join(settings.WORKSPACE_DIR, "data")
-        os.makedirs(storage.data_dir, exist_ok=True)
-        storage.tasks_file = os.path.join(storage.data_dir, "tasks.json")
-        storage._load()
+        # Re-init storage for test - assume FileStorage for local test
+        if isinstance(storage, FileStorage):
+            storage.data_dir = os.path.join(settings.WORKSPACE_DIR, "data")
+            os.makedirs(storage.data_dir, exist_ok=True)
+            storage.tasks_file = os.path.join(storage.data_dir, "tasks.json")
+            storage._load()
 
     @patch("app.workflow.get_llm")
     @patch("app.workflow.create_tool_calling_agent")
@@ -32,7 +33,8 @@ class TestMultiSession(unittest.TestCase):
         task2_id = "task-2"
 
         # We'll use a side effect on WorkflowManager.run_workflow_sync to verify state
-        with patch("app.agent.WorkflowManager") as MockManager:
+        # app.worker imports WorkflowManager, so we patch it there
+        with patch("app.worker.WorkflowManager") as MockManager:
             mock_instance = MockManager.return_value
 
             def run_workflow_side_effect(state):

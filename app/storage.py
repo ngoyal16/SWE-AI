@@ -1,10 +1,25 @@
 import os
 import json
-import logging
+import redis
 from typing import Dict, Any, List, Optional
+from abc import ABC, abstractmethod
 from app.config import settings
 
-class Storage:
+class BaseStorage(ABC):
+    @abstractmethod
+    def set_task_status(self, task_id: str, status: str): pass
+    @abstractmethod
+    def get_task_status(self, task_id: str) -> str: pass
+    @abstractmethod
+    def append_log(self, task_id: str, message: str): pass
+    @abstractmethod
+    def get_logs(self, task_id: str) -> List[str]: pass
+    @abstractmethod
+    def set_result(self, task_id: str, result: str): pass
+    @abstractmethod
+    def get_result(self, task_id: str) -> Optional[str]: pass
+
+class FileStorage(BaseStorage):
     def __init__(self, data_dir: str = None):
         self.data_dir = data_dir or os.path.join(settings.WORKSPACE_DIR, "data")
         os.makedirs(self.data_dir, exist_ok=True)
@@ -26,27 +41,65 @@ class Storage:
             json.dump(self.data, f, indent=2)
 
     def set_task_status(self, task_id: str, status: str):
+        self._load() # Reload to reduce race conditions (still poor for concurrency)
         self.data["tasks"][task_id] = status
         self._save()
 
     def get_task_status(self, task_id: str) -> str:
+        self._load()
         return self.data["tasks"].get(task_id, "UNKNOWN")
 
     def append_log(self, task_id: str, message: str):
+        self._load()
         if task_id not in self.data["logs"]:
             self.data["logs"][task_id] = []
         self.data["logs"][task_id].append(message)
         self._save()
 
     def get_logs(self, task_id: str) -> List[str]:
+        self._load()
         return self.data["logs"].get(task_id, [])
 
     def set_result(self, task_id: str, result: str):
+        self._load()
         self.data["results"][task_id] = result
         self._save()
 
     def get_result(self, task_id: str) -> Optional[str]:
+        self._load()
         return self.data["results"].get(task_id)
 
-# Global storage instance
-storage = Storage()
+class RedisStorage(BaseStorage):
+    def __init__(self):
+        self.redis = redis.from_url(settings.REDIS_URL)
+        self.ttl = 86400 * 7 # 7 days
+
+    def set_task_status(self, task_id: str, status: str):
+        self.redis.set(f"task:{task_id}:status", status, ex=self.ttl)
+
+    def get_task_status(self, task_id: str) -> str:
+        status = self.redis.get(f"task:{task_id}:status")
+        return status.decode('utf-8') if status else "UNKNOWN"
+
+    def append_log(self, task_id: str, message: str):
+        self.redis.rpush(f"task:{task_id}:logs", message)
+        self.redis.expire(f"task:{task_id}:logs", self.ttl)
+
+    def get_logs(self, task_id: str) -> List[str]:
+        logs = self.redis.lrange(f"task:{task_id}:logs", 0, -1)
+        return [log.decode('utf-8') for log in logs]
+
+    def set_result(self, task_id: str, result: str):
+        self.redis.set(f"task:{task_id}:result", result, ex=self.ttl)
+
+    def get_result(self, task_id: str) -> Optional[str]:
+        res = self.redis.get(f"task:{task_id}:result")
+        return res.decode('utf-8') if res else None
+
+# Factory
+def get_storage():
+    if hasattr(settings, "STORAGE_TYPE") and settings.STORAGE_TYPE == "redis":
+        return RedisStorage()
+    return FileStorage()
+
+storage = get_storage()

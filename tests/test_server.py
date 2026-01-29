@@ -2,15 +2,18 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 from app.server import app
 
+# Use FastAPI's TestClient which handles ASGI properly without httpx setup
 client = TestClient(app)
 
-@patch("app.agent.run_agent_task_async")
-def test_create_and_get_task(mock_run_task):
+@patch("app.agent.queue_manager.enqueue")
+def test_create_and_get_task(mock_enqueue):
     response = client.post("/agent/tasks", json={"goal": "Test goal"})
     assert response.status_code == 200
     data = response.json()
     assert "task_id" in data
     task_id = data["task_id"]
+
+    mock_enqueue.assert_called()
 
     response = client.get(f"/agent/tasks/{task_id}")
     assert response.status_code == 200
