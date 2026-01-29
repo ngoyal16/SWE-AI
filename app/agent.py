@@ -8,19 +8,13 @@ from app.sandbox.base import Sandbox
 from app.sandbox.local import LocalSandbox
 from app.sandbox.k8s import K8sSandbox
 from app.config import settings
-
-# Simple in-memory logger/storage
-TASK_LOGS: Dict[str, List[str]] = {}
-TASK_STATUS: Dict[str, str] = {}
-TASK_RESULTS: Dict[str, str] = {}
+from app.storage import storage
 
 # Registry for active sandboxes
 ACTIVE_SANDBOXES: Dict[str, Sandbox] = {}
 
 def log_message(task_id: str, message: str):
-    if task_id not in TASK_LOGS:
-        TASK_LOGS[task_id] = []
-    TASK_LOGS[task_id].append(message)
+    storage.append_log(task_id, message)
     print(f"[Task {task_id}] {message}")
 
 async def run_agent_task_async(task_id: str, goal: str, repo_url: str):
@@ -38,7 +32,7 @@ def run_agent_task_sync(task_id: str, goal: str, repo_url: str = ""):
     # It must be run in a separate thread.
     sandbox = None
     try:
-        TASK_STATUS[task_id] = "RUNNING"
+        storage.set_task_status(task_id, "RUNNING")
         log_message(task_id, f"Starting task: {goal} on repo {repo_url}")
 
         # Initialize Sandbox
@@ -61,6 +55,7 @@ def run_agent_task_sync(task_id: str, goal: str, repo_url: str = ""):
             "plan": None,
             "current_step": 0,
             "review_feedback": None,
+            "plan_critic_feedback": None,
             "status": "PLANNING",
             "logs": []
         }
@@ -74,14 +69,14 @@ def run_agent_task_sync(task_id: str, goal: str, repo_url: str = ""):
             log_message(task_id, log)
 
         if final_state["status"] == "COMPLETED":
-            TASK_STATUS[task_id] = "COMPLETED"
-            TASK_RESULTS[task_id] = "Workflow completed successfully."
+            storage.set_task_status(task_id, "COMPLETED")
+            storage.set_result(task_id, "Workflow completed successfully.")
         else:
-            TASK_STATUS[task_id] = "FAILED"
-            TASK_RESULTS[task_id] = "Workflow failed or timed out."
+            storage.set_task_status(task_id, "FAILED")
+            storage.set_result(task_id, "Workflow failed or timed out.")
 
     except Exception as e:
-        TASK_STATUS[task_id] = "FAILED"
+        storage.set_task_status(task_id, "FAILED")
         log_message(task_id, f"Task failed: {str(e)}")
         import traceback
         traceback.print_exc()
@@ -104,7 +99,7 @@ class AgentManager:
     def start_task(self, goal: str, repo_url: str = "") -> str:
         import uuid
         task_id = str(uuid.uuid4())
-        TASK_STATUS[task_id] = "QUEUED"
+        storage.set_task_status(task_id, "QUEUED")
         # Fire and forget async task which wraps the sync execution
         asyncio.create_task(run_agent_task_async(task_id, goal, repo_url))
         return task_id
@@ -112,9 +107,9 @@ class AgentManager:
     def get_task_status(self, task_id: str) -> Dict[str, Any]:
         return {
             "id": task_id,
-            "status": TASK_STATUS.get(task_id, "UNKNOWN"),
-            "logs": TASK_LOGS.get(task_id, []),
-            "result": TASK_RESULTS.get(task_id)
+            "status": storage.get_task_status(task_id),
+            "logs": storage.get_logs(task_id),
+            "result": storage.get_result(task_id)
         }
 
     def get_sandbox(self, task_id: str) -> Optional[Sandbox]:

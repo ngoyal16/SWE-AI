@@ -2,6 +2,7 @@ import asyncio
 import unittest
 from unittest.mock import MagicMock, patch
 from app.agent import AgentManager, run_agent_task_sync
+from app.storage import storage
 
 class TestAgent(unittest.TestCase):
 

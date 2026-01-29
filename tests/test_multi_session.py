@@ -3,8 +3,9 @@ import os
 import shutil
 import unittest
 from unittest.mock import MagicMock, patch
-from app.agent import run_agent_task_sync, TASK_STATUS
+from app.agent import run_agent_task_sync
 from app.config import settings
+from app.storage import Storage, storage
 
 class TestMultiSession(unittest.TestCase):
 
@@ -13,6 +14,11 @@ class TestMultiSession(unittest.TestCase):
         if os.path.exists(settings.WORKSPACE_DIR):
             shutil.rmtree(settings.WORKSPACE_DIR)
         os.makedirs(settings.WORKSPACE_DIR, exist_ok=True)
+        # Re-init storage for test
+        storage.data_dir = os.path.join(settings.WORKSPACE_DIR, "data")
+        os.makedirs(storage.data_dir, exist_ok=True)
+        storage.tasks_file = os.path.join(storage.data_dir, "tasks.json")
+        storage._load()
 
     @patch("app.workflow.get_llm")
     @patch("app.workflow.create_tool_calling_agent")

@@ -16,13 +16,13 @@ spec:
     spec:
       containers:
       - name: swe-agent
-        image: swe-agent:latest # Replace with your registry/image:tag
+        image: swe-agent:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
         env:
         - name: MODEL_NAME
-          value: "gemini-3.5" # or ops-4.5
+          value: "gemini-3.5"
         - name: GOOGLE_API_KEY
           valueFrom:
             secretKeyRef:
@@ -38,9 +38,25 @@ spec:
         volumeMounts:
         - name: workspace-volume
           mountPath: /app/workspace
+        - name: data-volume
+          mountPath: /app/workspace/data
       volumes:
       - name: workspace-volume
         emptyDir: {}
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: swe-agent-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: swe-agent-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
 ---
 apiVersion: v1
 kind: Service
