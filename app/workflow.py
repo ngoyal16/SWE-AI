@@ -17,7 +17,8 @@ class AgentState(TypedDict):
     plan: Optional[str]
     current_step: int
     review_feedback: Optional[str]
-    status: str # "PLANNING", "CODING", "REVIEWING", "COMPLETED", "FAILED"
+    plan_critic_feedback: Optional[str]
+    status: str # "PLANNING", "PLAN_CRITIC", "CODING", "REVIEWING", "COMPLETED", "FAILED"
     logs: List[str]
 
 def get_active_sandbox(task_id: str):
@@ -34,17 +35,45 @@ def planner_node(state: AgentState) -> AgentState:
     print(f"[{state['task_id']}] PLANNER: Generating plan...")
     llm = get_llm()
 
+    context_str = ""
+    if state.get("plan_critic_feedback"):
+        context_str += f"\nPrevious Plan Rejected. Critic Feedback: {state['plan_critic_feedback']}\nPlease improve the plan."
+
     prompt = ChatPromptTemplate.from_messages([
         ("system", "You are a Senior Technical Planner. Your job is to create a detailed, step-by-step plan to accomplish the user's goal in a software repository. The plan should be clear and actionable for a programmer."),
-        ("human", "Goal: {goal}\nRepo: {repo_url}\n\nPlease provide a numbered list of steps to achieve this.")
+        ("human", f"Goal: {{goal}}\nRepo: {{repo_url}}{context_str}\n\nPlease provide a numbered list of steps to achieve this.")
     ])
 
     chain = prompt | llm | StrOutputParser()
     plan = chain.invoke({"goal": state["goal"], "repo_url": state["repo_url"]})
 
     state["plan"] = plan
-    state["status"] = "CODING"
+    state["status"] = "PLAN_CRITIC"
     state["logs"].append(f"Plan generated: {plan}")
+    return state
+
+# --- PLAN CRITIC AGENT ---
+def plan_critic_node(state: AgentState) -> AgentState:
+    print(f"[{state['task_id']}] PLAN CRITIC: Reviewing plan...")
+    llm = get_llm()
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "You are a Technical Plan Critic. Review the proposed plan for safety, completeness, and feasibility. If the plan is good, respond with 'APPROVED'. If not, provide specific, constructive feedback on what steps are missing or dangerous."),
+        ("human", f"Goal: {{goal}}\nProposed Plan:\n{{plan}}\n\nReview the plan.")
+    ])
+
+    chain = prompt | llm | StrOutputParser()
+    feedback = chain.invoke({"goal": state["goal"], "plan": state["plan"]})
+
+    if "APPROVED" in feedback:
+        state["status"] = "CODING"
+        state["plan_critic_feedback"] = None
+        state["logs"].append("Plan Critic Approved.")
+    else:
+        state["status"] = "PLANNING"
+        state["plan_critic_feedback"] = feedback
+        state["logs"].append(f"Plan Critic Feedback: {feedback}")
+
     return state
 
 # --- PROGRAMMER AGENT ---
@@ -132,7 +161,7 @@ class WorkflowManager:
         state["status"] = "PLANNING"
 
         # Max steps to prevent infinite loops
-        max_steps = 10
+        max_steps = 15 # Increased due to extra step
         steps = 0
 
         while state["status"] not in ["COMPLETED", "FAILED"] and steps < max_steps:
@@ -141,6 +170,8 @@ class WorkflowManager:
 
             if current_status == "PLANNING":
                 state = planner_node(state)
+            elif current_status == "PLAN_CRITIC":
+                state = plan_critic_node(state)
             elif current_status == "CODING":
                 state = programmer_node(state)
             elif current_status == "REVIEWING":
