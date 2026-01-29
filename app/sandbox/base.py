@@ -36,3 +36,11 @@ class Sandbox(ABC):
     def get_root_path(self) -> str:
         """Returns the root path of the workspace inside the sandbox."""
         pass
+
+    def set_cwd(self, path: str):
+        """Sets the current working directory for the sandbox session."""
+        self._cwd = path
+
+    def get_cwd(self) -> str:
+        """Returns the current working directory."""
+        return getattr(self, "_cwd", self.get_root_path())

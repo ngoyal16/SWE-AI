@@ -17,6 +17,8 @@ def create_git_tools(sandbox: Sandbox) -> List[StructuredTool]:
         # Using command is safer across sandbox types
         check = sandbox.run_command(f"test -d {repo_name} && echo EXISTS")
         if "EXISTS" in check:
+             # Optimization: Set CWD if it exists
+             sandbox.set_cwd(target_path)
              return f"Repository already exists at {target_path}"
 
         final_url = repo_url
@@ -28,48 +30,53 @@ def create_git_tools(sandbox: Sandbox) -> List[StructuredTool]:
         if "Error" not in res:
             sandbox.run_command(f"git config user.name '{settings.GIT_USERNAME}'", target_path)
             sandbox.run_command(f"git config user.email '{settings.GIT_EMAIL}'", target_path)
+            # Optimization: Update sandbox CWD to repo path
+            sandbox.set_cwd(target_path)
             return f"Successfully cloned to {target_path}"
         return res
 
+    def get_repo_path(provided_path: Optional[str] = None) -> str:
+        # Use provided path if valid
+        if provided_path:
+             return provided_path
+
+        # Optimization: Use sandbox CWD if explicitly set and distinct from root
+        cwd = sandbox.get_cwd()
+        root = sandbox.get_root_path()
+        if cwd and cwd != root:
+            return cwd
+
+        # Fallback: List files (network call)
+        ls = sandbox.list_files(".")
+        dirs = [d.strip("/") for d in ls.splitlines() if d.strip().endswith("/")]
+        if not dirs:
+            return "No repository found in workspace."
+        return dirs[0] # Assume first dir is repo
+
     def create_branch(branch_name: str, repo_path: Optional[str] = None) -> str:
         """Creates and switches to a new branch."""
-        if not repo_path:
-            # Try to auto-detect
-            ls = sandbox.list_files(".")
-            # Parse output of ls -F (directories have /)
-            dirs = [d.strip("/") for d in ls.splitlines() if d.strip().endswith("/")]
-            if not dirs:
-                return "No repository found in workspace."
-            repo_path = dirs[0] # Relative path
-
-        return sandbox.run_command(f"git checkout -b {branch_name}", repo_path)
+        target = get_repo_path(repo_path)
+        if "No repository" in target: return target
+        return sandbox.run_command(f"git checkout -b {branch_name}", target)
 
     def commit_changes(message: str, repo_path: Optional[str] = None) -> str:
         """Stages all changes and commits them."""
-        if not repo_path:
-            ls = sandbox.list_files(".")
-            dirs = [d.strip("/") for d in ls.splitlines() if d.strip().endswith("/")]
-            if not dirs:
-                return "No repository found in workspace."
-            repo_path = dirs[0]
+        target = get_repo_path(repo_path)
+        if "No repository" in target: return target
 
-        add_res = sandbox.run_command("git add .", repo_path)
+        add_res = sandbox.run_command("git add .", target)
         if "Error" in add_res:
             return f"Failed to add files: {add_res}"
 
-        commit_res = sandbox.run_command(f"git commit -m '{message}'", repo_path)
+        commit_res = sandbox.run_command(f"git commit -m '{message}'", target)
         return commit_res
 
     def push_changes(remote: str = "origin", branch: str = "main", repo_path: Optional[str] = None) -> str:
         """Pushes changes to the remote repository."""
-        if not repo_path:
-            ls = sandbox.list_files(".")
-            dirs = [d.strip("/") for d in ls.splitlines() if d.strip().endswith("/")]
-            if not dirs:
-                return "No repository found in workspace."
-            repo_path = dirs[0]
+        target = get_repo_path(repo_path)
+        if "No repository" in target: return target
 
-        return sandbox.run_command(f"git push {remote} {branch}", repo_path)
+        return sandbox.run_command(f"git push {remote} {branch}", target)
 
     return [
         StructuredTool.from_function(clone_repo, name="clone_repo", description="Clones a git repository into the workspace."),

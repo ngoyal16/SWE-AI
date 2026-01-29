@@ -4,6 +4,8 @@ import kubernetes.config
 from kubernetes.stream import stream
 from app.sandbox.base import Sandbox
 from app.config import settings
+import base64
+import os
 
 class K8sSandbox(Sandbox):
     def __init__(self, task_id: str):
@@ -99,12 +101,7 @@ class K8sSandbox(Sandbox):
             return f"Error executing command: {str(e)}"
 
     def read_file(self, filepath: str) -> str:
-        # Simple cat implementation
-        # For robustness, we should verify path is safe (no .. out of workspace)
-        # But here workspace_root is the boundary effectively if we assume restricted container
-
         path = f"{self.workspace_root}/{filepath}"
-        # We assume filepath is relative to workspace root or absolute inside it
         if filepath.startswith("/"):
             path = filepath
 
@@ -115,19 +112,12 @@ class K8sSandbox(Sandbox):
         if filepath.startswith("/"):
             path = filepath
 
-        # Ensure dir exists
-        dir_path = "/".join(path.split("/")[:-1])
-        self.run_command(f"mkdir -p {dir_path}")
-
-        # Use simple echo for now.
-        # For large/binary files, we should use stream with stdin
-        # Implementing robust write via exec is tricky with special chars.
-        # A better way is using Python to write a python script to the pod that writes the file,
-        # or base64 encoding.
-
-        import base64
+        # Optimize: Combined mkdir and write to save a network RTT
+        dir_path = os.path.dirname(path)
         encoded = base64.b64encode(content.encode('utf-8')).decode('utf-8')
-        cmd = f"echo {encoded} | base64 -d > {path}"
+
+        # Single command: mkdir -p dir && echo base64 | base64 -d > file
+        cmd = f"mkdir -p {dir_path} && echo {encoded} | base64 -d > {path}"
 
         res = self.run_command(cmd)
         if "Error" in res:
