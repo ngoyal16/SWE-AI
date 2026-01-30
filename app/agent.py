@@ -1,4 +1,4 @@
-import uuid
+import random
 from typing import Dict, Any, Optional
 from app.storage import storage
 from app.queue_manager import queue_manager
@@ -16,11 +16,12 @@ class AgentManager:
             cls._instance = super(AgentManager, cls).__new__(cls)
         return cls._instance
 
-    def start_task(self, goal: str, repo_url: str = "") -> str:
+    def start_task(self, goal: str, repo_url: str = "", base_branch: Optional[str] = None) -> str:
         """API Side: Enqueue the task"""
-        task_id = str(uuid.uuid4())
+        # Generate 64-bit random integer (18-19 digits)
+        task_id = str(random.randint(10**17, 9223372036854775807))
         storage.set_task_status(task_id, "QUEUED")
-        queue_manager.enqueue(task_id, goal, repo_url)
+        queue_manager.enqueue(task_id, goal, repo_url, base_branch)
         return task_id
 
     def get_task_status(self, task_id: str) -> Dict[str, Any]:

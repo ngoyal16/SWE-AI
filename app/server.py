@@ -9,13 +9,14 @@ agent_manager = AgentManager()
 class TaskRequest(BaseModel):
     goal: str
     repo_url: Optional[str] = ""
+    base_branch: Optional[str] = None
 
 class TaskResponse(BaseModel):
     task_id: str
 
 @app.post("/agent/tasks", response_model=TaskResponse)
 async def create_task(request: TaskRequest):
-    task_id = agent_manager.start_task(request.goal, request.repo_url)
+    task_id = agent_manager.start_task(request.goal, request.repo_url, request.base_branch)
     return TaskResponse(task_id=task_id)
 
 @app.get("/agent/tasks/{task_id}")

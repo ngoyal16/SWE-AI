@@ -14,7 +14,7 @@ class TestAgent(unittest.TestCase):
         task_id = manager.start_task("Goal", "Repo")
 
         mock_storage.set_task_status.assert_called_with(task_id, "QUEUED")
-        mock_queue.enqueue.assert_called_with(task_id, "Goal", "Repo")
+        mock_queue.enqueue.assert_called_with(task_id, "Goal", "Repo", None)
 
         # Ensure run_agent_task_async is NOT called directly (it's called by the async loop which is not running here,
         # or we patched start_task logic).

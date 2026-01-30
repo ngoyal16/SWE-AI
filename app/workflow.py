@@ -13,6 +13,7 @@ class AgentState(TypedDict):
     task_id: str
     goal: str
     repo_url: Optional[str]
+    base_branch: Optional[str]
     workspace_path: str
     plan: Optional[str]
     current_step: int
@@ -41,11 +42,16 @@ def planner_node(state: AgentState) -> AgentState:
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", "You are a Senior Technical Planner. Your job is to create a detailed, step-by-step plan to accomplish the user's goal in a software repository. The plan should be clear and actionable for a programmer."),
-        ("human", "Goal: {goal}\nRepo: {repo_url}\nContext: {context}\n\nPlease provide a numbered list of steps to achieve this.")
+        ("human", "Goal: {goal}\nRepo: {repo_url}\nBase Branch: {base_branch}\nContext: {context}\n\nPlease provide a numbered list of steps to achieve this.")
     ])
 
     chain = prompt | llm | StrOutputParser()
-    plan = chain.invoke({"goal": state["goal"], "repo_url": state["repo_url"], "context": context_str})
+    plan = chain.invoke({
+        "goal": state["goal"],
+        "repo_url": state["repo_url"],
+        "base_branch": state.get("base_branch") or "Default",
+        "context": context_str
+    })
 
     state["plan"] = plan
     state["status"] = "PLAN_CRITIC"

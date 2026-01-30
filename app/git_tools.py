@@ -59,6 +59,12 @@ def create_git_tools(sandbox: Sandbox) -> List[StructuredTool]:
         if "No repository" in target: return target
         return sandbox.run_command(f"git checkout -b {branch_name}", target)
 
+    def checkout_branch(branch_name: str, repo_path: Optional[str] = None) -> str:
+        """Switches to an existing branch."""
+        target = get_repo_path(repo_path)
+        if "No repository" in target: return target
+        return sandbox.run_command(f"git checkout {branch_name}", target)
+
     def commit_changes(message: str, repo_path: Optional[str] = None) -> str:
         """Stages all changes and commits them."""
         target = get_repo_path(repo_path)
@@ -81,6 +87,7 @@ def create_git_tools(sandbox: Sandbox) -> List[StructuredTool]:
     return [
         StructuredTool.from_function(clone_repo, name="clone_repo", description="Clones a git repository into the workspace."),
         StructuredTool.from_function(create_branch, name="create_branch", description="Creates and switches to a new branch."),
+        StructuredTool.from_function(checkout_branch, name="checkout_branch", description="Switches to an existing branch."),
         StructuredTool.from_function(commit_changes, name="commit_changes", description="Stages all changes and commits them."),
         StructuredTool.from_function(push_changes, name="push_changes", description="Pushes changes to the remote repository.")
     ]

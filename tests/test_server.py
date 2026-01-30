@@ -23,9 +23,23 @@ def test_create_and_get_task(mock_enqueue):
 
     print("API test passed!")
 
+@patch("app.agent.queue_manager.enqueue")
+def test_create_task_with_branch(mock_enqueue):
+    response = client.post("/agent/tasks", json={"goal": "Test goal", "base_branch": "develop"})
+    assert response.status_code == 200
+
+    # Verify enqueue was called with base_branch
+    args, kwargs = mock_enqueue.call_args
+    # args: (task_id, goal, repo_url, base_branch)
+    assert args[1] == "Test goal"
+    assert args[3] == "develop"
+
+    print("API with branch test passed!")
+
 if __name__ == "__main__":
     try:
         test_create_and_get_task()
+        test_create_task_with_branch()
     except Exception as e:
         print(f"Test failed: {e}")
         import traceback

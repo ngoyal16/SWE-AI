@@ -15,13 +15,13 @@ def log_message(task_id: str, message: str):
     storage.append_log(task_id, message)
     logger.info(f"[Task {task_id}] {message}")
 
-def run_agent_task_sync(task_id: str, goal: str, repo_url: str = ""):
+def run_agent_task_sync(task_id: str, goal: str, repo_url: str = "", base_branch: str = None):
     sandbox = None
     agent_manager = AgentManager()
 
     try:
         storage.set_task_status(task_id, "RUNNING")
-        log_message(task_id, f"Worker picked up task: {goal} on repo {repo_url}")
+        log_message(task_id, f"Worker picked up task: {goal} on repo {repo_url} (base branch: {base_branch})")
 
         # Initialize Sandbox
         if settings.SANDBOX_TYPE == "k8s":
@@ -39,6 +39,7 @@ def run_agent_task_sync(task_id: str, goal: str, repo_url: str = ""):
             "task_id": task_id,
             "goal": goal,
             "repo_url": repo_url,
+            "base_branch": base_branch,
             "workspace_path": sandbox.get_root_path(),
             "plan": None,
             "current_step": 0,
@@ -80,7 +81,7 @@ def main():
         try:
             task = queue_manager.dequeue()
             if task:
-                run_agent_task_sync(task["task_id"], task["goal"], task["repo_url"])
+                run_agent_task_sync(task["task_id"], task["goal"], task["repo_url"], task.get("base_branch"))
             else:
                 # No tasks, wait a bit to avoid tight loop if Redis is fast but empty
                 # blpop already waits, but if it returns None (timeout), we loop.

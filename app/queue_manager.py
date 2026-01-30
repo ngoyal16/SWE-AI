@@ -1,5 +1,6 @@
 import redis
 import json
+from typing import Optional
 from app.config import settings
 
 class QueueManager:
@@ -7,11 +8,12 @@ class QueueManager:
         self.redis = redis.from_url(settings.REDIS_URL)
         self.queue_name = "swe_agent_tasks"
 
-    def enqueue(self, task_id: str, goal: str, repo_url: str):
+    def enqueue(self, task_id: str, goal: str, repo_url: str, base_branch: Optional[str] = None):
         payload = {
             "task_id": task_id,
             "goal": goal,
-            "repo_url": repo_url
+            "repo_url": repo_url,
+            "base_branch": base_branch
         }
         self.redis.rpush(self.queue_name, json.dumps(payload))
 
