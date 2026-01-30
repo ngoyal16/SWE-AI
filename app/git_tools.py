@@ -13,7 +13,7 @@ def validate_branch_name(branch_name: str) -> tuple[bool, str]:
         return False, f"ERROR: Branch '{branch_name}' violates convention. Format must be 'type/kebab-case'. Allowed types: feature, bugfix, hotfix, chore, docs."
     return True, "OK"
 
-def create_git_tools(sandbox: Sandbox) -> List[StructuredTool]:
+def create_git_tools(sandbox: Sandbox, base_branch: Optional[str] = None) -> List[StructuredTool]:
 
     def clone_repo(repo_url: str) -> str:
         """Clones a git repository into the workspace. Returns the path to the cloned repo."""
@@ -92,6 +92,14 @@ def create_git_tools(sandbox: Sandbox) -> List[StructuredTool]:
 
     def push_changes(remote: str = "origin", branch: str = "main", repo_path: Optional[str] = None) -> str:
         """Pushes changes to the remote repository."""
+        # Protection: Do not allow pushing to base_branch or protected branches
+        protected_branches = ["main", "master", "develop"]
+        if base_branch:
+            protected_branches.append(base_branch)
+
+        if branch in protected_branches:
+            return f"Error: Cannot push to protected or base branch '{branch}'. Please push to your feature branch."
+
         target = get_repo_path(repo_path)
         if "No repository" in target: return target
 

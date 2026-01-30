@@ -120,7 +120,8 @@ def programmer_node(state: AgentState) -> AgentState:
     try:
         sandbox = get_active_sandbox(state["session_id"])
         # Initialize tools with specific sandbox
-        tools = create_filesystem_tools(sandbox) + create_git_tools(sandbox)
+        base_branch = state.get("base_branch")
+        tools = create_filesystem_tools(sandbox) + create_git_tools(sandbox, base_branch)
 
         # Context includes the plan and previous feedback
         context_str = f"Plan:\n{state['plan']}\n"
