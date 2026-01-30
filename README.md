@@ -1,6 +1,6 @@
 # SWE Agent
 
-An end-to-end asynchronous coding agent inspired by Open SWE, capable of using Gemini-3.5 or Ops-4.5. It supports deployment on Cloud VMs or Kubernetes with secure sandboxing.
+An end-to-end asynchronous coding agent inspired by Open SWE, capable of using any LLM (Gemini, OpenAI, Azure, Ollama). It features a scalable microservices architecture and supports secure deployment on Cloud VMs or Kubernetes.
 
 ## Documentation
 
@@ -8,22 +8,33 @@ An end-to-end asynchronous coding agent inspired by Open SWE, capable of using G
 
 ## Features
 
-*   **Multi-Model Support**: Gemini-3.5 (via Google GenAI) and Ops-4.5 (via OpenAI).
-*   **Git Integration**: Clone, Branch, Commit, Push to any Git provider.
-*   **Asynchronous & Multi-Session**: Non-blocking architecture supports concurrent tasks.
+*   **Multi-Model Support**: Dynamic configuration for OpenAI, Google Gemini, Azure, and local Ollama models.
+*   **Scalable Architecture**: Decoupled API and Worker services backed by Redis, allowing independent scaling for high throughput.
+*   **Advanced Workflow**: Includes a **Plan Critic** step to verify and improve implementation plans before execution.
+*   **Git Integration**: Provider-agnostic tools to Clone, Branch, Commit, and Push.
 *   **Sandboxed Execution**:
     *   **Local**: Isolated directory workspaces.
-    *   **Kubernetes**: Ephemeral Pods (can be mapped to MicroVMs like Kata Containers).
+    *   **Kubernetes**: Ephemeral Pods with support for **MicroVMs** (Kata Containers, gVisor) for hardware-level isolation.
+*   **Persistent Storage**: Task state and logs are persisted (Redis or File-based) to survive restarts.
 
-## Quick Start (Docker)
+## Quick Start (Docker Compose)
 
-1.  **Configure**: Create `.env` (see User Guide).
-2.  **Run**:
+1.  **Configure**: Create a `.env` file with your keys (see User Guide for details).
     ```bash
-    docker build -t swe-agent .
-    docker run -p 8000:8000 --env-file .env swe-agent
+    OPENAI_API_KEY=sk-...
+    LLM_PROVIDER=openai
     ```
-3.  **Interact**:
+
+2.  **Run**:
+    Start the API, Worker, and Redis services.
     ```bash
-    curl -X POST http://localhost:8000/agent/tasks -d '{"goal": "Fix bug", "repo_url": "..."}'
+    docker-compose up --build
+    ```
+
+3.  **Interact**:
+    Submit a task to the API (exposed on port 8000).
+    ```bash
+    curl -X POST http://localhost:8000/agent/tasks \
+      -H "Content-Type: application/json" \
+      -d '{"goal": "Fix bug in login logic", "repo_url": "https://github.com/example/repo.git"}'
     ```

@@ -41,11 +41,11 @@ def planner_node(state: AgentState) -> AgentState:
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", "You are a Senior Technical Planner. Your job is to create a detailed, step-by-step plan to accomplish the user's goal in a software repository. The plan should be clear and actionable for a programmer."),
-        ("human", f"Goal: {{goal}}\nRepo: {{repo_url}}{context_str}\n\nPlease provide a numbered list of steps to achieve this.")
+        ("human", "Goal: {goal}\nRepo: {repo_url}\nContext: {context}\n\nPlease provide a numbered list of steps to achieve this.")
     ])
 
     chain = prompt | llm | StrOutputParser()
-    plan = chain.invoke({"goal": state["goal"], "repo_url": state["repo_url"]})
+    plan = chain.invoke({"goal": state["goal"], "repo_url": state["repo_url"], "context": context_str})
 
     state["plan"] = plan
     state["status"] = "PLAN_CRITIC"
@@ -59,7 +59,7 @@ def plan_critic_node(state: AgentState) -> AgentState:
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", "You are a Technical Plan Critic. Review the proposed plan for safety, completeness, and feasibility. If the plan is good, respond with 'APPROVED'. If not, provide specific, constructive feedback on what steps are missing or dangerous."),
-        ("human", f"Goal: {{goal}}\nProposed Plan:\n{{plan}}\n\nReview the plan.")
+        ("human", "Goal: {goal}\nProposed Plan:\n{plan}\n\nReview the plan.")
     ])
 
     chain = prompt | llm | StrOutputParser()
@@ -93,14 +93,14 @@ def programmer_node(state: AgentState) -> AgentState:
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", "You are a Skilled Software Engineer. You have access to tools to modify the file system and run git commands. Follow the plan to implement the requested changes. If there is review feedback, address it."),
-            ("human", f"Goal: {{goal}}\nContext:\n{context_str}\n\nExecute the necessary changes. When finished with the current iteration of changes, simply respond with 'CHANGES_COMPLETE'."),
+            ("human", "Goal: {goal}\nContext:\n{context}\n\nExecute the necessary changes. When finished with the current iteration of changes, simply respond with 'CHANGES_COMPLETE'."),
             ("placeholder", "{agent_scratchpad}"),
         ])
 
         agent = create_tool_calling_agent(llm, tools, prompt)
         agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=15)
 
-        result = agent_executor.invoke({"goal": state["goal"]})
+        result = agent_executor.invoke({"goal": state["goal"], "context": context_str})
         output = result.get("output", "")
         state["logs"].append(f"Programmer output: {output}")
         state["status"] = "REVIEWING"

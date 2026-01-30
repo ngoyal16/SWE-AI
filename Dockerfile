@@ -2,7 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies if any (e.g. for building tools)
+# Install system dependencies
+# git: for cloning repos
+# curl: for debugging/healthchecks
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
@@ -24,5 +26,5 @@ ENV WORKSPACE_DIR=/app/workspace
 # Expose port
 EXPOSE 8000
 
-# Command to run the application
+# Default command (overridden by k8s for worker vs api)
 CMD ["uvicorn", "app.server:app", "--host", "0.0.0.0", "--port", "8000"]
