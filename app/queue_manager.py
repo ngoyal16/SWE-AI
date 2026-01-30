@@ -1,0 +1,25 @@
+import redis
+import json
+from app.config import settings
+
+class QueueManager:
+    def __init__(self):
+        self.redis = redis.from_url(settings.REDIS_URL)
+        self.queue_name = "swe_agent_tasks"
+
+    def enqueue(self, task_id: str, goal: str, repo_url: str):
+        payload = {
+            "task_id": task_id,
+            "goal": goal,
+            "repo_url": repo_url
+        }
+        self.redis.rpush(self.queue_name, json.dumps(payload))
+
+    def dequeue(self):
+        # Blocking pop
+        item = self.redis.blpop(self.queue_name, timeout=5)
+        if item:
+            return json.loads(item[1])
+        return None
+
+queue_manager = QueueManager()

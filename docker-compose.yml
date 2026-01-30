@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  api:
+    build: .
+    command: uvicorn app.server:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_TYPE=redis
+      # Pass through env vars from host
+      - OPENAI_API_KEY
+      - GOOGLE_API_KEY
+      - AZURE_OPENAI_API_KEY
+      - GIT_USERNAME
+      - GIT_EMAIL
+      - GIT_TOKEN
+      - LLM_PROVIDER
+      - LLM_MODEL
+      - SANDBOX_TYPE=local
+    volumes:
+      - ./workspace:/app/workspace
+    depends_on:
+      - redis
+
+  worker:
+    build: .
+    command: python -m app.worker
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_TYPE=redis
+      - OPENAI_API_KEY
+      - GOOGLE_API_KEY
+      - AZURE_OPENAI_API_KEY
+      - GIT_USERNAME
+      - GIT_EMAIL
+      - GIT_TOKEN
+      - LLM_PROVIDER
+      - LLM_MODEL
+      - SANDBOX_TYPE=local
+    volumes:
+      - ./workspace:/app/workspace
+    depends_on:
+      - redis
