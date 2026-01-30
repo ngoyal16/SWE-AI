@@ -7,93 +7,93 @@ from app.config import settings
 
 class BaseStorage(ABC):
     @abstractmethod
-    def set_task_status(self, task_id: str, status: str): pass
+    def set_session_status(self, session_id: str, status: str): pass
     @abstractmethod
-    def get_task_status(self, task_id: str) -> str: pass
+    def get_session_status(self, session_id: str) -> str: pass
     @abstractmethod
-    def append_log(self, task_id: str, message: str): pass
+    def append_log(self, session_id: str, message: str): pass
     @abstractmethod
-    def get_logs(self, task_id: str) -> List[str]: pass
+    def get_logs(self, session_id: str) -> List[str]: pass
     @abstractmethod
-    def set_result(self, task_id: str, result: str): pass
+    def set_result(self, session_id: str, result: str): pass
     @abstractmethod
-    def get_result(self, task_id: str) -> Optional[str]: pass
+    def get_result(self, session_id: str) -> Optional[str]: pass
 
 class FileStorage(BaseStorage):
     def __init__(self, data_dir: str = None):
         self.data_dir = data_dir or os.path.join(settings.WORKSPACE_DIR, "data")
         os.makedirs(self.data_dir, exist_ok=True)
-        self.tasks_file = os.path.join(self.data_dir, "tasks.json")
+        self.sessions_file = os.path.join(self.data_dir, "sessions.json")
         self._load()
 
     def _load(self):
-        if os.path.exists(self.tasks_file):
+        if os.path.exists(self.sessions_file):
             try:
-                with open(self.tasks_file, "r") as f:
+                with open(self.sessions_file, "r") as f:
                     self.data = json.load(f)
             except json.JSONDecodeError:
-                self.data = {"tasks": {}, "logs": {}, "results": {}}
+                self.data = {"sessions": {}, "logs": {}, "results": {}}
         else:
-            self.data = {"tasks": {}, "logs": {}, "results": {}}
+            self.data = {"sessions": {}, "logs": {}, "results": {}}
 
     def _save(self):
-        with open(self.tasks_file, "w") as f:
+        with open(self.sessions_file, "w") as f:
             json.dump(self.data, f, indent=2)
 
-    def set_task_status(self, task_id: str, status: str):
+    def set_session_status(self, session_id: str, status: str):
         self._load() # Reload to reduce race conditions (still poor for concurrency)
-        self.data["tasks"][task_id] = status
+        self.data["sessions"][session_id] = status
         self._save()
 
-    def get_task_status(self, task_id: str) -> str:
+    def get_session_status(self, session_id: str) -> str:
         self._load()
-        return self.data["tasks"].get(task_id, "UNKNOWN")
+        return self.data["sessions"].get(session_id, "UNKNOWN")
 
-    def append_log(self, task_id: str, message: str):
+    def append_log(self, session_id: str, message: str):
         self._load()
-        if task_id not in self.data["logs"]:
-            self.data["logs"][task_id] = []
-        self.data["logs"][task_id].append(message)
+        if session_id not in self.data["logs"]:
+            self.data["logs"][session_id] = []
+        self.data["logs"][session_id].append(message)
         self._save()
 
-    def get_logs(self, task_id: str) -> List[str]:
+    def get_logs(self, session_id: str) -> List[str]:
         self._load()
-        return self.data["logs"].get(task_id, [])
+        return self.data["logs"].get(session_id, [])
 
-    def set_result(self, task_id: str, result: str):
+    def set_result(self, session_id: str, result: str):
         self._load()
-        self.data["results"][task_id] = result
+        self.data["results"][session_id] = result
         self._save()
 
-    def get_result(self, task_id: str) -> Optional[str]:
+    def get_result(self, session_id: str) -> Optional[str]:
         self._load()
-        return self.data["results"].get(task_id)
+        return self.data["results"].get(session_id)
 
 class RedisStorage(BaseStorage):
     def __init__(self):
         self.redis = redis.from_url(settings.REDIS_URL)
         self.ttl = 86400 * 7 # 7 days
 
-    def set_task_status(self, task_id: str, status: str):
-        self.redis.set(f"task:{task_id}:status", status, ex=self.ttl)
+    def set_session_status(self, session_id: str, status: str):
+        self.redis.set(f"session:{session_id}:status", status, ex=self.ttl)
 
-    def get_task_status(self, task_id: str) -> str:
-        status = self.redis.get(f"task:{task_id}:status")
+    def get_session_status(self, session_id: str) -> str:
+        status = self.redis.get(f"session:{session_id}:status")
         return status.decode('utf-8') if status else "UNKNOWN"
 
-    def append_log(self, task_id: str, message: str):
-        self.redis.rpush(f"task:{task_id}:logs", message)
-        self.redis.expire(f"task:{task_id}:logs", self.ttl)
+    def append_log(self, session_id: str, message: str):
+        self.redis.rpush(f"session:{session_id}:logs", message)
+        self.redis.expire(f"session:{session_id}:logs", self.ttl)
 
-    def get_logs(self, task_id: str) -> List[str]:
-        logs = self.redis.lrange(f"task:{task_id}:logs", 0, -1)
+    def get_logs(self, session_id: str) -> List[str]:
+        logs = self.redis.lrange(f"session:{session_id}:logs", 0, -1)
         return [log.decode('utf-8') for log in logs]
 
-    def set_result(self, task_id: str, result: str):
-        self.redis.set(f"task:{task_id}:result", result, ex=self.ttl)
+    def set_result(self, session_id: str, result: str):
+        self.redis.set(f"session:{session_id}:result", result, ex=self.ttl)
 
-    def get_result(self, task_id: str) -> Optional[str]:
-        res = self.redis.get(f"task:{task_id}:result")
+    def get_result(self, session_id: str) -> Optional[str]:
+        res = self.redis.get(f"session:{session_id}:result")
         return res.decode('utf-8') if res else None
 
 # Factory

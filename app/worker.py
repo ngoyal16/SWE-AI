@@ -11,34 +11,35 @@ from app.sandbox.local import LocalSandbox
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def log_message(task_id: str, message: str):
-    storage.append_log(task_id, message)
-    logger.info(f"[Task {task_id}] {message}")
+def log_message(session_id: str, message: str):
+    storage.append_log(session_id, message)
+    logger.info(f"[Session {session_id}] {message}")
 
-def run_agent_task_sync(task_id: str, goal: str, repo_url: str = ""):
+def run_agent_session_sync(session_id: str, goal: str, repo_url: str = "", base_branch: str = None):
     sandbox = None
     agent_manager = AgentManager()
 
     try:
-        storage.set_task_status(task_id, "RUNNING")
-        log_message(task_id, f"Worker picked up task: {goal} on repo {repo_url}")
+        storage.set_session_status(session_id, "RUNNING")
+        log_message(session_id, f"Worker picked up session: {goal} on repo {repo_url} (base branch: {base_branch})")
 
         # Initialize Sandbox
         if settings.SANDBOX_TYPE == "k8s":
-            sandbox = K8sSandbox(task_id)
+            sandbox = K8sSandbox(session_id)
         else:
-            sandbox = LocalSandbox(task_id)
+            sandbox = LocalSandbox(session_id)
 
-        log_message(task_id, f"Setting up sandbox ({settings.SANDBOX_TYPE})...")
+        log_message(session_id, f"Setting up sandbox ({settings.SANDBOX_TYPE})...")
         sandbox.setup()
-        agent_manager.register_sandbox(task_id, sandbox)
-        log_message(task_id, "Sandbox ready.")
+        agent_manager.register_sandbox(session_id, sandbox)
+        log_message(session_id, "Sandbox ready.")
 
         # Initialize State
         state: AgentState = {
-            "task_id": task_id,
+            "session_id": session_id,
             "goal": goal,
             "repo_url": repo_url,
+            "base_branch": base_branch,
             "workspace_path": sandbox.get_root_path(),
             "plan": None,
             "current_step": 0,
@@ -54,33 +55,33 @@ def run_agent_task_sync(task_id: str, goal: str, repo_url: str = ""):
 
         # Merge logs
         for log in final_state["logs"]:
-            log_message(task_id, log)
+            log_message(session_id, log)
 
         if final_state["status"] == "COMPLETED":
-            storage.set_task_status(task_id, "COMPLETED")
-            storage.set_result(task_id, "Workflow completed successfully.")
+            storage.set_session_status(session_id, "COMPLETED")
+            storage.set_result(session_id, "Workflow completed successfully.")
         else:
-            storage.set_task_status(task_id, "FAILED")
-            storage.set_result(task_id, "Workflow failed or timed out.")
+            storage.set_session_status(session_id, "FAILED")
+            storage.set_result(session_id, "Workflow failed or timed out.")
 
     except Exception as e:
-        storage.set_task_status(task_id, "FAILED")
-        log_message(task_id, f"Task failed: {str(e)}")
+        storage.set_session_status(session_id, "FAILED")
+        log_message(session_id, f"Session failed: {str(e)}")
         import traceback
         traceback.print_exc()
     finally:
         if sandbox:
-            log_message(task_id, "Tearing down sandbox...")
+            log_message(session_id, "Tearing down sandbox...")
             sandbox.teardown()
-            agent_manager.unregister_sandbox(task_id)
+            agent_manager.unregister_sandbox(session_id)
 
 def main():
-    logger.info("Worker started. Polling for tasks...")
+    logger.info("Worker started. Polling for sessions...")
     while True:
         try:
             task = queue_manager.dequeue()
             if task:
-                run_agent_task_sync(task["task_id"], task["goal"], task["repo_url"])
+                run_agent_session_sync(task["session_id"], task["goal"], task["repo_url"], task.get("base_branch"))
             else:
                 # No tasks, wait a bit to avoid tight loop if Redis is fast but empty
                 # blpop already waits, but if it returns None (timeout), we loop.
