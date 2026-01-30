@@ -198,7 +198,7 @@ class WorkflowManager:
         state["status"] = "PLANNING"
 
         # Max steps to prevent infinite loops
-        max_steps = 15 # Increased due to extra step
+        max_steps = 50 # Increased to handle complex tasks
         steps = 0
 
         while state["status"] not in ["COMPLETED", "FAILED"] and steps < max_steps:
