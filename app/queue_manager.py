@@ -8,9 +8,9 @@ class QueueManager:
         self.redis = redis.from_url(settings.REDIS_URL)
         self.queue_name = "swe_agent_tasks"
 
-    def enqueue(self, task_id: str, goal: str, repo_url: str, base_branch: Optional[str] = None):
+    def enqueue(self, session_id: str, goal: str, repo_url: str, base_branch: Optional[str] = None):
         payload = {
-            "task_id": task_id,
+            "session_id": session_id,
             "goal": goal,
             "repo_url": repo_url,
             "base_branch": base_branch
