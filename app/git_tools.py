@@ -1,8 +1,17 @@
 import os
+import re
 from langchain_core.tools import StructuredTool
 from app.config import settings
 from app.sandbox.base import Sandbox
 from typing import Optional, List
+
+def validate_branch_name(branch_name: str) -> tuple[bool, str]:
+    # Regex: strict "type/kebab-case"
+    pattern = r"^(feature|bugfix|hotfix|chore|docs)\/[a-z0-9-]+$"
+
+    if not re.match(pattern, branch_name):
+        return False, f"ERROR: Branch '{branch_name}' violates convention. Format must be 'type/kebab-case'. Allowed types: feature, bugfix, hotfix, chore, docs."
+    return True, "OK"
 
 def create_git_tools(sandbox: Sandbox) -> List[StructuredTool]:
 
@@ -55,6 +64,10 @@ def create_git_tools(sandbox: Sandbox) -> List[StructuredTool]:
 
     def create_branch(branch_name: str, repo_path: Optional[str] = None) -> str:
         """Creates and switches to a new branch."""
+        is_valid, error_msg = validate_branch_name(branch_name)
+        if not is_valid:
+            return error_msg
+
         target = get_repo_path(repo_path)
         if "No repository" in target: return target
         return sandbox.run_command(f"git checkout -b {branch_name}", target)
