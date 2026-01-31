@@ -7,6 +7,7 @@ from app.storage import storage
 from app.config import settings
 from app.sandbox.k8s import K8sSandbox
 from app.sandbox.local import LocalSandbox
+from app.sandbox.daytona import DaytonaSandbox
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,6 +27,8 @@ def run_agent_session_sync(session_id: str, goal: str, repo_url: str = "", base_
         # Initialize Sandbox
         if settings.SANDBOX_TYPE == "k8s":
             sandbox = K8sSandbox(session_id)
+        elif settings.SANDBOX_TYPE == "daytona":
+            sandbox = DaytonaSandbox(session_id)
         else:
             sandbox = LocalSandbox(session_id)
 
