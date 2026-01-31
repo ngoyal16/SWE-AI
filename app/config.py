@@ -35,7 +35,7 @@ class Config:
 
     # Daytona configuration
     DAYTONA_API_KEY = os.getenv("DAYTONA_API_KEY", "")
-    DAYTONA_SERVER_URL = os.getenv("DAYTONA_SERVER_URL", "https://api.daytona.io")
+    DAYTONA_API_URL = os.getenv("DAYTONA_API_URL", os.getenv("DAYTONA_SERVER_URL", "https://api.daytona.io"))
     DAYTONA_TARGET_IMAGE = os.getenv("DAYTONA_TARGET_IMAGE", "ubuntu:22.04")
     DAYTONA_TARGET_REPO = os.getenv("DAYTONA_TARGET_REPO", "")
 

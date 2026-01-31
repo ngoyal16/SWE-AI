@@ -1,6 +1,23 @@
 import os
+import ssl
 from app.sandbox.base import Sandbox
 from app.config import settings
+
+# Bypass SSL verification for self-signed certificates
+try:
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    ssl._create_default_https_context = ssl._create_unverified_context
+    # Deep patch for urllib3
+    from urllib3.util import ssl_
+    original_create_urllib3_context = ssl_.create_urllib3_context
+    def unverified_create_urllib3_context(*args, **kwargs):
+        kwargs['cert_reqs'] = ssl.CERT_NONE
+        return original_create_urllib3_context(*args, **kwargs)
+    ssl_.create_urllib3_context = unverified_create_urllib3_context
+except (AttributeError, ImportError):
+    pass
+
 try:
     from daytona import Daytona, DaytonaConfig, CreateSandboxFromImageParams
 except ImportError as e:
@@ -21,9 +38,16 @@ class DaytonaSandbox(Sandbox):
 
         config = DaytonaConfig(
             api_key=settings.DAYTONA_API_KEY,
-            server_url=settings.DAYTONA_SERVER_URL
+            api_url=settings.DAYTONA_API_URL
         )
         self.daytona = Daytona(config)
+
+        # Explicitly disable SSL verification on the internal api clients if they exist
+        if hasattr(self.daytona, '_api_client'):
+            self.daytona._api_client.configuration.verify_ssl = False
+        if hasattr(self.daytona, '_sandbox_api'):
+            self.daytona._sandbox_api.api_client.configuration.verify_ssl = False
+
 
         # Check if sandbox already exists (resuming?)
         # For now, we assume new session = new sandbox, or we try to find one.

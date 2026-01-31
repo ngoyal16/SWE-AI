@@ -25,6 +25,7 @@ services:
       - LLM_MODEL
       - SANDBOX_TYPE=daytona
       - DAYTONA_API_KEY
+      - DAYTONA_API_URL
       - DAYTONA_SERVER_URL
       - DAYTONA_TARGET_IMAGE
       - DAYTONA_TARGET_REPO
@@ -49,6 +50,7 @@ services:
       - LLM_MODEL
       - SANDBOX_TYPE=daytona
       - DAYTONA_API_KEY
+      - DAYTONA_API_URL
       - DAYTONA_SERVER_URL
       - DAYTONA_TARGET_IMAGE
       - DAYTONA_TARGET_REPO
