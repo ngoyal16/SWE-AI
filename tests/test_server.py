@@ -49,7 +49,8 @@ def test_approve_session(mock_set_status, mock_save_state, mock_get_state, mock_
         "mode": "review",
         "goal": "Test",
         "repo_url": "",
-        "base_branch": None
+        "base_branch": None,
+        "next_status": "BRANCH_NAMING"
     }
 
     response = client.post(f"/agent/sessions/{session_id}/approve")
@@ -59,7 +60,8 @@ def test_approve_session(mock_set_status, mock_save_state, mock_get_state, mock_
     # Verify state update
     mock_save_state.assert_called()
     saved_state = mock_save_state.call_args[0][1]
-    assert saved_state["status"] == "CODING"
+    assert saved_state["status"] == "BRANCH_NAMING"
+    assert "next_status" not in saved_state
 
     # Verify re-enqueue
     mock_enqueue.assert_called()

@@ -6,7 +6,7 @@ from langchain_core.tools import Tool
 
 from app.llm import get_llm
 from app.tools import create_filesystem_tools
-from app.git_tools import create_git_tools, init_workspace
+from app.git_tools import create_git_tools, init_workspace, commit_changes, create_branch, push_changes
 from app.storage import storage
 from app.callbacks import SessionCallbackHandler
 
@@ -21,9 +21,12 @@ class AgentState(TypedDict):
     current_step: int
     review_feedback: Optional[str]
     plan_critic_feedback: Optional[str]
-    status: str # "PLANNING", "PLAN_CRITIC", "CODING", "REVIEWING", "COMPLETED", "FAILED", "WAITING_FOR_USER"
+    status: str # "PLANNING", "PLAN_CRITIC", "CODING", "REVIEWING", "COMMITTING", "COMPLETED", "FAILED", "WAITING_FOR_USER"
     logs: List[str]
     mode: str # "auto", "review"
+    commit_message: Optional[str]
+    branch_name: Optional[str]
+    next_status: Optional[str]
 
 def log_update(state: AgentState, message: str):
     state["logs"].append(message)
@@ -54,29 +57,14 @@ def planner_node(state: AgentState) -> AgentState:
 ### GIT & NAMING CONVENTIONS
 You are a strict adherent to Conventional Commits and Git Flow. You must follow these rules for every git operation:
 
-1. BRANCH NAMING:
-   - Format: `type/short-description-kebab-case-{session_id}`
-   - Allowed Types: `feature`, `bugfix`, `hotfix`, `chore`, `docs`.
-   - Example: `feature/user-login-123456789`, `bugfix/fix-header-crash-987654321`.
-   - NEVER use colons (:) in branch names.
-   - ALWAYS append the session ID (`-{session_id}`) to the generated branch name to make it unique.
-
-2. COMMIT MESSAGES:
-   - Format: `type(scope): description`
-   - Allowed Types: `feat`, `fix`, `chore`, `docs`, `style`, `refactor`, `test`.
-   - The description must be lowercase and present tense ("add" not "added").
-   - Example: `feat(auth): add google oauth login support`
-
-3. PR TITLES:
-   - Same format as Commit Messages.
-   - Example: `fix(ui): align save button on mobile`
-
-The repository is already cloned and checked out to the base branch. Start your plan by generating a suitable branch name and including a step to create it.
+The repository is already cloned and checked out to the base branch.
 
 IMPORTANT:
 - The `Base Branch` provided is ONLY for checking out the starting state.
 - You must NEVER commit directly to the Base Branch or Default Branch.
 - You must ALWAYS create a new feature branch from the Base Branch before making any changes.
+- Do NOT include steps for committing or pushing changes. This will be handled automatically.
+- Do NOT include steps for creating the feature branch. The system will generate and create the branch automatically.
 """),
         ("human", "Goal: {goal}\nRepo: {repo_url}\nBase Branch: {base_branch}\nSession ID: {session_id}\nContext: {context}\n\nPlease provide a numbered list of steps to achieve this.")
     ])
@@ -112,9 +100,10 @@ def plan_critic_node(state: AgentState) -> AgentState:
     if "APPROVED" in feedback:
         if state.get("mode") == "review":
             state["status"] = "WAITING_FOR_USER"
-            log_update(state, "Plan Critic Approved. Waiting for user approval.")
+            state["next_status"] = "BRANCH_NAMING"
+            log_update(state, "Plan Critic Approved. Waiting for user approval before generating branch.")
         else:
-            state["status"] = "CODING"
+            state["status"] = "BRANCH_NAMING"
         state["plan_critic_feedback"] = None
         log_update(state, "Plan Critic Approved.")
     else:
@@ -122,6 +111,67 @@ def plan_critic_node(state: AgentState) -> AgentState:
         state["plan_critic_feedback"] = feedback
         log_update(state, f"Plan Critic Feedback: {feedback}")
 
+    return state
+
+# --- BRANCH NAMING AGENT ---
+def branch_naming_node(state: AgentState) -> AgentState:
+    print(f"[{state['session_id']}] BRANCH_NAMING: Generating branch name...")
+    llm = get_llm()
+    callbacks = [SessionCallbackHandler(state["session_id"])]
+
+    # Check if branch name already exists
+    if state.get("branch_name"):
+        log_update(state, f"Branch name already exists: {state['branch_name']}. Skipping generation.")
+        # Make sure it's checked out
+        sandbox = get_active_sandbox(state["session_id"])
+        res = create_branch(sandbox, state["branch_name"])
+        log_update(state, f"Branch checkout result: {res}")
+        state["status"] = "CODING"
+        return state
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", """You are a Git Branch Name Generator.
+
+### GIT & NAMING CONVENTIONS
+You are a strict adherent to Conventional Commits and Git Flow. You must follow these rules for every git operation:
+
+Generate a branch name based on the user's goal and plan.
+Rules:
+1. Format: `type/short-description-kebab-case-{session_id}`
+2. Allowed Types: `feature`, `bugfix`, `hotfix`, `chore`, `docs`.
+3. NEVER use colons (:) or uppercase.
+4. Append `-{session_id}` to the end.
+"""),
+        ("human", "Goal: {goal}\nPlan: {plan}\nSession ID: {session_id}\n\nGenerate the branch name.")
+    ])
+
+    chain = prompt | llm | StrOutputParser()
+    branch_name = chain.invoke({
+        "goal": state["goal"],
+        "plan": state["plan"],
+        "session_id": state["session_id"]
+    }, config={"callbacks": callbacks})
+
+    branch_name = branch_name.strip().strip("'").strip('"')
+
+    # Enforce session_id suffix
+    if not branch_name.endswith(f"-{state['session_id']}"):
+        branch_name = f"{branch_name}-{state['session_id']}"
+
+    state["branch_name"] = branch_name
+    log_update(state, f"Generated branch name: {branch_name}")
+
+    sandbox = get_active_sandbox(state["session_id"])
+    res = create_branch(sandbox, branch_name)
+    log_update(state, f"Branch creation result: {res}")
+
+    if "ERROR" in res: # Validation error
+        # Fallback or retry? For now, fail.
+        state["status"] = "FAILED"
+        log_update(state, f"Branch creation failed: {res}")
+        return state
+
+    state["status"] = "CODING"
     return state
 
 # --- PROGRAMMER AGENT ---
@@ -134,7 +184,10 @@ def programmer_node(state: AgentState) -> AgentState:
         sandbox = get_active_sandbox(state["session_id"])
         # Initialize tools with specific sandbox
         base_branch = state.get("base_branch")
-        tools = create_filesystem_tools(sandbox) + create_git_tools(sandbox, base_branch)
+        all_git_tools = create_git_tools(sandbox, base_branch)
+        # Filter out commit and push tools to prevent premature commits
+        allowed_git_tools = [t for t in all_git_tools if t.name not in ["commit_changes", "push_changes"]]
+        tools = create_filesystem_tools(sandbox) + allowed_git_tools
 
         # Context includes the plan and previous feedback
         context_str = f"Plan:\n{state['plan']}\n"
@@ -142,7 +195,7 @@ def programmer_node(state: AgentState) -> AgentState:
             context_str += f"\nReview Feedback (Fix these issues):\n{state['review_feedback']}\n"
 
         prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are a Skilled Software Engineer. You have access to tools to modify the file system and run git commands. Follow the plan to implement the requested changes. If there is review feedback, address it."),
+            ("system", "You are a Skilled Software Engineer. You have access to tools to modify the file system and run git commands. Follow the plan to implement the requested changes. Do not commit changes. Just modify the files. If there is review feedback, address it."),
             ("human", "Goal: {goal}\nContext:\n{context}\n\nExecute the necessary changes. When finished with the current iteration of changes, simply respond with 'CHANGES_COMPLETE'."),
             ("placeholder", "{agent_scratchpad}"),
         ])
@@ -157,6 +210,78 @@ def programmer_node(state: AgentState) -> AgentState:
     except Exception as e:
         log_update(state, f"Programmer error: {str(e)}")
         state["status"] = "FAILED"
+
+    return state
+
+# --- COMMIT MSG AGENT ---
+def commit_msg_node(state: AgentState) -> AgentState:
+    print(f"[{state['session_id']}] COMMIT_MSG: Generating commit message...")
+    llm = get_llm()
+    callbacks = [SessionCallbackHandler(state["session_id"])]
+
+    sandbox = get_active_sandbox(state["session_id"])
+
+    # Stage all changes to ensure untracked files are included in the diff
+    sandbox.run_command("git add .")
+
+    # Get diff of staged changes
+    # We use --cached because we just staged everything
+    diff = sandbox.run_command("git diff --cached")
+
+    # Truncate diff if too long to avoid context window issues
+    if len(diff) > 10000:
+        diff = diff[:10000] + "\n... (diff truncated)"
+
+    if not diff.strip():
+        log_update(state, "No changes detected to commit.")
+        state["status"] = "COMPLETED"
+        return state
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", """You are a Commit Message Generator.
+
+### GIT & NAMING CONVENTIONS
+You are a strict adherent to Conventional Commits and Git Flow. You must follow these rules for every git operation:
+
+Generate a Git commit message based on the provided diff.
+Follow these strict rules:
+1. Format: `type(scope): description`
+2. Allowed Types: `feat`, `fix`, `chore`, `docs`, `style`, `refactor`, `test`.
+3. The description must be lowercase and present tense ("add" not "added").
+4. Keep it concise.
+"""),
+        ("human", "Goal: {goal}\nDiff:\n{diff}\n\nGenerate the commit message.")
+    ])
+
+    chain = prompt | llm | StrOutputParser()
+    message = chain.invoke({"goal": state["goal"], "diff": diff}, config={"callbacks": callbacks})
+
+    # Clean up message (remove quotes if any)
+    message = message.strip().strip('"').strip("'")
+
+    log_update(state, f"Generated commit message: {message}")
+    state["commit_message"] = message
+
+    # Commit changes
+    result = commit_changes(sandbox, message)
+    log_update(state, f"Commit result: {result}")
+
+    if "Error" in result:
+        state["status"] = "FAILED"
+    else:
+        # Push changes
+        # We need to know the branch name. It should be in state.
+        branch_name = state.get("branch_name")
+        if branch_name:
+            push_res = push_changes(sandbox, state.get("base_branch"), branch=branch_name)
+            log_update(state, f"Push result: {push_res}")
+            if "Error" in push_res:
+                 state["status"] = "FAILED" # Or maybe partially completed?
+            else:
+                 state["status"] = "COMPLETED"
+        else:
+             log_update(state, "Warning: Branch name missing in state. Cannot push.")
+             state["status"] = "COMPLETED"
 
     return state
 
@@ -184,9 +309,9 @@ def reviewer_node(state: AgentState) -> AgentState:
         output = result.get("output", "")
 
         if "APPROVED" in output:
-            state["status"] = "COMPLETED"
+            state["status"] = "COMMITTING"
             state["review_feedback"] = None
-            log_update(state, "Reviewer Approved.")
+            log_update(state, "Reviewer Approved. Proceeding to commit generation.")
             pass
         else:
             state["status"] = "CODING"
@@ -239,10 +364,14 @@ class WorkflowManager:
                 state = planner_node(state)
             elif current_status == "PLAN_CRITIC":
                 state = plan_critic_node(state)
+            elif current_status == "BRANCH_NAMING":
+                state = branch_naming_node(state)
             elif current_status == "CODING":
                 state = programmer_node(state)
             elif current_status == "REVIEWING":
                 state = reviewer_node(state)
+            elif current_status == "COMMITTING":
+                state = commit_msg_node(state)
             elif current_status == "WAITING_FOR_USER":
                 log_update(state, "Pausing workflow for user approval.")
                 # State persistence is handled by the worker upon return
