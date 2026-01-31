@@ -23,7 +23,11 @@ services:
       - GIT_TOKEN
       - LLM_PROVIDER
       - LLM_MODEL
-      - SANDBOX_TYPE=local
+      - SANDBOX_TYPE=daytona
+      - DAYTONA_API_KEY
+      - DAYTONA_SERVER_URL
+      - DAYTONA_TARGET_IMAGE
+      - DAYTONA_TARGET_REPO
     volumes:
       - ./workspace:/app/workspace
     depends_on:
@@ -43,7 +47,11 @@ services:
       - GIT_TOKEN
       - LLM_PROVIDER
       - LLM_MODEL
-      - SANDBOX_TYPE=local
+      - SANDBOX_TYPE=daytona
+      - DAYTONA_API_KEY
+      - DAYTONA_SERVER_URL
+      - DAYTONA_TARGET_IMAGE
+      - DAYTONA_TARGET_REPO
     volumes:
       - ./workspace:/app/workspace
     depends_on:

@@ -5,8 +5,8 @@ from app.agent import AgentManager
 from app.workflow import WorkflowManager, AgentState
 from app.storage import storage
 from app.config import settings
-from app.sandbox.k8s import K8sSandbox
 from app.sandbox.local import LocalSandbox
+from app.sandbox.daytona import DaytonaSandbox
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,8 +24,8 @@ def run_agent_session_sync(session_id: str, goal: str, repo_url: str = "", base_
         log_message(session_id, f"Worker picked up session: {goal} on repo {repo_url} (base branch: {base_branch}, mode: {mode})")
 
         # Initialize Sandbox
-        if settings.SANDBOX_TYPE == "k8s":
-            sandbox = K8sSandbox(session_id)
+        if settings.SANDBOX_TYPE == "daytona":
+            sandbox = DaytonaSandbox(session_id)
         else:
             sandbox = LocalSandbox(session_id)
 
@@ -77,8 +77,8 @@ def run_agent_session_sync(session_id: str, goal: str, repo_url: str = "", base_
         traceback.print_exc()
     finally:
         if sandbox:
-            log_message(session_id, "Tearing down sandbox...")
-            sandbox.teardown()
+            # log_message(session_id, "Tearing down sandbox...")
+            # sandbox.teardown()
             agent_manager.unregister_sandbox(session_id)
 
 def main():
