@@ -23,6 +23,10 @@ class Config:
     GIT_USERNAME = os.getenv("GIT_USERNAME", "swe-agent")
     GIT_EMAIL = os.getenv("GIT_EMAIL", "swe-agent@example.com")
     GIT_TOKEN = os.getenv("GIT_TOKEN", "")
+    GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+    GITLAB_TOKEN = os.getenv("GITLAB_TOKEN", "")
+    # GIT_HOST_TOKENS should be a JSON string mapping hostname -> token
+    GIT_HOST_TOKENS = os.getenv("GIT_HOST_TOKENS", "")
 
     # Sandbox configuration
     SANDBOX_TYPE = os.getenv("SANDBOX_TYPE", "local")
