@@ -3,7 +3,8 @@ from app.sandbox.base import Sandbox
 from app.config import settings
 try:
     from daytona import Daytona, DaytonaConfig, CreateSandboxFromImageParams
-except ImportError:
+except ImportError as e:
+    print(f"Failed to import daytona: {e}")
     Daytona = None
     DaytonaConfig = None
     CreateSandboxFromImageParams = None
