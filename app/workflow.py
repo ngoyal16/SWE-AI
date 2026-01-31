@@ -6,7 +6,7 @@ from langchain_core.tools import Tool
 
 from app.llm import get_llm
 from app.tools import create_filesystem_tools
-from app.git_tools import create_git_tools
+from app.git_tools import create_git_tools, init_workspace
 from app.storage import storage
 from app.callbacks import SessionCallbackHandler
 
@@ -70,8 +70,7 @@ You are a strict adherent to Conventional Commits and Git Flow. You must follow 
    - Same format as Commit Messages.
    - Example: `fix(ui): align save button on mobile`
 
-Start your plan by calling the `setup_workspace` tool to initialize the repository.
-Then, generate a suitable branch name and include a step to create it using `create_branch`.
+Start your plan by generating a suitable branch name and including a step to create it.
 
 IMPORTANT:
 - The `Base Branch` provided is ONLY for checking out the starting state.
@@ -206,7 +205,19 @@ class WorkflowManager:
         Runs the workflow synchronously. This should be called from a separate thread
         to avoid blocking the main asyncio loop.
         """
-        state["status"] = "PLANNING"
+        # Initialize workspace before starting the agent loop
+        if state["status"] == "PLANNING":
+             # Only initialize if just starting
+             try:
+                sandbox = get_active_sandbox(state["session_id"])
+                if state["repo_url"]:
+                    log_update(state, f"Initializing workspace for repo: {state['repo_url']}...")
+                    init_output = init_workspace(sandbox, state["repo_url"], state["base_branch"])
+                    log_update(state, f"Workspace initialization result:\n{init_output}")
+             except Exception as e:
+                log_update(state, f"Failed to initialize workspace: {str(e)}")
+                state["status"] = "FAILED"
+                return state
 
         # Max steps to prevent infinite loops
         max_steps = 50 # Increased to handle complex tasks
