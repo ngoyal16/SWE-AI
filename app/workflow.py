@@ -6,7 +6,7 @@ from langchain_core.tools import Tool
 
 from app.llm import get_llm
 from app.tools import create_filesystem_tools
-from app.git_tools import create_git_tools, init_workspace, commit_changes
+from app.git_tools import create_git_tools, init_workspace, commit_changes, create_branch
 from app.storage import storage
 from app.callbacks import SessionCallbackHandler
 
@@ -25,6 +25,7 @@ class AgentState(TypedDict):
     logs: List[str]
     mode: str # "auto", "review"
     commit_message: Optional[str]
+    branch_name: Optional[str]
 
 def log_update(state: AgentState, message: str):
     state["logs"].append(message)
@@ -55,20 +56,14 @@ def planner_node(state: AgentState) -> AgentState:
 ### GIT & NAMING CONVENTIONS
 You are a strict adherent to Conventional Commits and Git Flow. You must follow these rules for every git operation:
 
-1. BRANCH NAMING:
-   - Format: `type/short-description-kebab-case-{session_id}`
-   - Allowed Types: `feature`, `bugfix`, `hotfix`, `chore`, `docs`.
-   - Example: `feature/user-login-123456789`, `bugfix/fix-header-crash-987654321`.
-   - NEVER use colons (:) in branch names.
-   - ALWAYS append the session ID (`-{session_id}`) to the generated branch name to make it unique.
-
-The repository is already cloned and checked out to the base branch. Start your plan by generating a suitable branch name and including a step to create it.
+The repository is already cloned and checked out to the base branch.
 
 IMPORTANT:
 - The `Base Branch` provided is ONLY for checking out the starting state.
 - You must NEVER commit directly to the Base Branch or Default Branch.
 - You must ALWAYS create a new feature branch from the Base Branch before making any changes.
 - Do NOT include steps for committing or pushing changes. This will be handled automatically.
+- Do NOT include steps for creating the feature branch. The system will generate and create the branch automatically.
 """),
         ("human", "Goal: {goal}\nRepo: {repo_url}\nBase Branch: {base_branch}\nSession ID: {session_id}\nContext: {context}\n\nPlease provide a numbered list of steps to achieve this.")
     ])
@@ -102,17 +97,79 @@ def plan_critic_node(state: AgentState) -> AgentState:
     feedback = chain.invoke({"goal": state["goal"], "plan": state["plan"]}, config={"callbacks": callbacks})
 
     if "APPROVED" in feedback:
-        if state.get("mode") == "review":
-            state["status"] = "WAITING_FOR_USER"
-            log_update(state, "Plan Critic Approved. Waiting for user approval.")
-        else:
-            state["status"] = "CODING"
+        state["status"] = "BRANCH_NAMING"
         state["plan_critic_feedback"] = None
-        log_update(state, "Plan Critic Approved.")
+        log_update(state, "Plan Critic Approved. Proceeding to branch generation.")
     else:
         state["status"] = "PLANNING"
         state["plan_critic_feedback"] = feedback
         log_update(state, f"Plan Critic Feedback: {feedback}")
+
+    return state
+
+# --- BRANCH NAMING AGENT ---
+def branch_naming_node(state: AgentState) -> AgentState:
+    print(f"[{state['session_id']}] BRANCH_NAMING: Generating branch name...")
+    llm = get_llm()
+    callbacks = [SessionCallbackHandler(state["session_id"])]
+
+    # Check if branch name already exists
+    if state.get("branch_name"):
+        log_update(state, f"Branch name already exists: {state['branch_name']}. Skipping generation.")
+        # Make sure it's checked out
+        sandbox = get_active_sandbox(state["session_id"])
+        res = create_branch(sandbox, state["branch_name"])
+        log_update(state, f"Branch checkout result: {res}")
+        if state.get("mode") == "review":
+             state["status"] = "WAITING_FOR_USER"
+        else:
+             state["status"] = "CODING"
+        return state
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", """You are a Git Branch Name Generator.
+Generate a branch name based on the user's goal and plan.
+Rules:
+1. Format: `type/short-description-kebab-case-{session_id}`
+2. Allowed Types: `feature`, `bugfix`, `hotfix`, `chore`, `docs`.
+3. NEVER use colons (:) or uppercase.
+4. Append `-{session_id}` to the end.
+"""),
+        ("human", "Goal: {goal}\nPlan: {plan}\nSession ID: {session_id}\n\nGenerate the branch name.")
+    ])
+
+    chain = prompt | llm | StrOutputParser()
+    branch_name = chain.invoke({
+        "goal": state["goal"],
+        "plan": state["plan"],
+        "session_id": state["session_id"]
+    }, config={"callbacks": callbacks})
+
+    branch_name = branch_name.strip().strip("'").strip('"')
+
+    # Ensure session_id suffix is present (sometimes LLM might miss it or duplicate)
+    # The prompt asks for it, but let's be safe?
+    # Actually, let's rely on LLM but if it fails validation, create_branch might complain if we had strict checks.
+    # But create_branch only checks regex.
+
+    state["branch_name"] = branch_name
+    log_update(state, f"Generated branch name: {branch_name}")
+
+    sandbox = get_active_sandbox(state["session_id"])
+    res = create_branch(sandbox, branch_name)
+    log_update(state, f"Branch creation result: {res}")
+
+    if "ERROR" in res: # Validation error
+        # Fallback or retry? For now, fail.
+        state["status"] = "FAILED"
+        log_update(state, f"Branch creation failed: {res}")
+        return state
+
+    if state.get("mode") == "review":
+        state["status"] = "WAITING_FOR_USER"
+        log_update(state, "Branch created. Waiting for user approval.")
+    else:
+        state["status"] = "CODING"
 
     return state
 
@@ -290,6 +347,8 @@ class WorkflowManager:
                 state = planner_node(state)
             elif current_status == "PLAN_CRITIC":
                 state = plan_critic_node(state)
+            elif current_status == "BRANCH_NAMING":
+                state = branch_naming_node(state)
             elif current_status == "CODING":
                 state = programmer_node(state)
             elif current_status == "REVIEWING":
