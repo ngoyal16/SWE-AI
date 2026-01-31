@@ -33,8 +33,14 @@ class AgentManager:
         if state.get("status") != "WAITING_FOR_USER":
             return False
 
-        # Update status to CODING
-        state["status"] = "CODING"
+        # Update status
+        if state.get("next_status"):
+            state["status"] = state["next_status"]
+            del state["next_status"]
+        else:
+            # Fallback for backward compatibility
+            state["status"] = "CODING"
+
         storage.save_state(session_id, state)
         storage.set_session_status(session_id, "QUEUED") # Re-queue status
 

@@ -6,7 +6,7 @@ from langchain_core.tools import Tool
 
 from app.llm import get_llm
 from app.tools import create_filesystem_tools
-from app.git_tools import create_git_tools, init_workspace, commit_changes, create_branch
+from app.git_tools import create_git_tools, init_workspace, commit_changes, create_branch, push_changes
 from app.storage import storage
 from app.callbacks import SessionCallbackHandler
 
@@ -26,6 +26,7 @@ class AgentState(TypedDict):
     mode: str # "auto", "review"
     commit_message: Optional[str]
     branch_name: Optional[str]
+    next_status: Optional[str]
 
 def log_update(state: AgentState, message: str):
     state["logs"].append(message)
@@ -97,9 +98,14 @@ def plan_critic_node(state: AgentState) -> AgentState:
     feedback = chain.invoke({"goal": state["goal"], "plan": state["plan"]}, config={"callbacks": callbacks})
 
     if "APPROVED" in feedback:
-        state["status"] = "BRANCH_NAMING"
+        if state.get("mode") == "review":
+            state["status"] = "WAITING_FOR_USER"
+            state["next_status"] = "BRANCH_NAMING"
+            log_update(state, "Plan Critic Approved. Waiting for user approval before generating branch.")
+        else:
+            state["status"] = "BRANCH_NAMING"
         state["plan_critic_feedback"] = None
-        log_update(state, "Plan Critic Approved. Proceeding to branch generation.")
+        log_update(state, "Plan Critic Approved.")
     else:
         state["status"] = "PLANNING"
         state["plan_critic_feedback"] = feedback
@@ -122,12 +128,17 @@ def branch_naming_node(state: AgentState) -> AgentState:
         log_update(state, f"Branch checkout result: {res}")
         if state.get("mode") == "review":
              state["status"] = "WAITING_FOR_USER"
+             state["next_status"] = "CODING"
         else:
              state["status"] = "CODING"
         return state
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", """You are a Git Branch Name Generator.
+
+### GIT & NAMING CONVENTIONS
+You are a strict adherent to Conventional Commits and Git Flow. You must follow these rules for every git operation:
+
 Generate a branch name based on the user's goal and plan.
 Rules:
 1. Format: `type/short-description-kebab-case-{session_id}`
@@ -147,10 +158,9 @@ Rules:
 
     branch_name = branch_name.strip().strip("'").strip('"')
 
-    # Ensure session_id suffix is present (sometimes LLM might miss it or duplicate)
-    # The prompt asks for it, but let's be safe?
-    # Actually, let's rely on LLM but if it fails validation, create_branch might complain if we had strict checks.
-    # But create_branch only checks regex.
+    # Enforce session_id suffix
+    if not branch_name.endswith(f"-{state['session_id']}"):
+        branch_name = f"{branch_name}-{state['session_id']}"
 
     state["branch_name"] = branch_name
     log_update(state, f"Generated branch name: {branch_name}")
@@ -167,6 +177,7 @@ Rules:
 
     if state.get("mode") == "review":
         state["status"] = "WAITING_FOR_USER"
+        state["next_status"] = "CODING"
         log_update(state, "Branch created. Waiting for user approval.")
     else:
         state["status"] = "CODING"
@@ -238,6 +249,10 @@ def commit_msg_node(state: AgentState) -> AgentState:
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", """You are a Commit Message Generator.
+
+### GIT & NAMING CONVENTIONS
+You are a strict adherent to Conventional Commits and Git Flow. You must follow these rules for every git operation:
+
 Generate a Git commit message based on the provided diff.
 Follow these strict rules:
 1. Format: `type(scope): description`
@@ -264,7 +279,19 @@ Follow these strict rules:
     if "Error" in result:
         state["status"] = "FAILED"
     else:
-        state["status"] = "COMPLETED"
+        # Push changes
+        # We need to know the branch name. It should be in state.
+        branch_name = state.get("branch_name")
+        if branch_name:
+            push_res = push_changes(sandbox, state.get("base_branch"), branch=branch_name)
+            log_update(state, f"Push result: {push_res}")
+            if "Error" in push_res:
+                 state["status"] = "FAILED" # Or maybe partially completed?
+            else:
+                 state["status"] = "COMPLETED"
+        else:
+             log_update(state, "Warning: Branch name missing in state. Cannot push.")
+             state["status"] = "COMPLETED"
 
     return state
 
