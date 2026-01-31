@@ -58,6 +58,10 @@ def planner_node(state: AgentState) -> AgentState:
     if state.get("plan_critic_feedback"):
         context_str += f"\nPrevious Plan Rejected. Critic Feedback: {state['plan_critic_feedback']}\nPlease improve the plan."
 
+    # If replanning (pending inputs or critic feedback), include the previous plan
+    if state.get("plan"):
+        context_str += f"\n\nExisting Plan:\n{state['plan']}\n\nINSTRUCTION: The goal has been updated or feedback received. Refine the Existing Plan to accommodate the new requirements. Do not lose progress if possible, but modify steps as needed."
+
     prompt = ChatPromptTemplate.from_messages([
         ("system", """You are a Senior Technical Planner. Your job is to create a detailed, step-by-step plan to accomplish the user's goal in a software repository. The plan should be clear and actionable for a programmer.
 
