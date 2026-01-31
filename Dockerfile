@@ -14,7 +14,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ app/
-COPY k8s/ k8s/
 
 # Setup workspace directory
 RUN mkdir -p workspace
