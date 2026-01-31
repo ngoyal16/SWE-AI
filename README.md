@@ -12,10 +12,16 @@ An end-to-end asynchronous coding agent inspired by Open SWE, capable of using a
 *   **Scalable Architecture**: Decoupled API and Worker services backed by Redis, allowing independent scaling for high throughput.
 *   **Advanced Workflow**: Includes a **Plan Critic** step to verify and improve implementation plans before execution.
 *   **Git Integration**: Provider-agnostic tools to Clone, Branch, Commit, and Push.
+*   **Review Mode**: Optional pause-and-resume workflow to allow humans to review and approve plans before code execution.
 *   **Sandboxed Execution**:
     *   **Local**: Isolated directory workspaces.
     *   **Kubernetes**: Ephemeral Pods with support for **MicroVMs** (Kata Containers, gVisor) for hardware-level isolation.
 *   **Persistent Storage**: Task state and logs are persisted (Redis or File-based) to survive restarts.
+
+## Documentation
+
+*   [**User Guide**](docs/USER_GUIDE.md): Installation and usage details.
+*   [**API Reference**](docs/API.md): Full documentation of all API endpoints.
 
 ## Quick Start (Docker Compose)
 

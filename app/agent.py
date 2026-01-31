@@ -16,13 +16,40 @@ class AgentManager:
             cls._instance = super(AgentManager, cls).__new__(cls)
         return cls._instance
 
-    def start_session(self, goal: str, repo_url: str = "", base_branch: Optional[str] = None) -> str:
+    def start_session(self, goal: str, repo_url: str = "", base_branch: Optional[str] = None, mode: str = "auto") -> str:
         """API Side: Enqueue the session"""
         # Generate 64-bit random integer (18-19 digits)
         session_id = str(random.randint(10**17, 9223372036854775807))
         storage.set_session_status(session_id, "QUEUED")
-        queue_manager.enqueue(session_id, goal, repo_url, base_branch)
+        queue_manager.enqueue(session_id, goal, repo_url, base_branch, mode)
         return session_id
+
+    def resume_session(self, session_id: str) -> bool:
+        """API Side: Resume a session waiting for user approval"""
+        state = storage.get_state(session_id)
+        if not state:
+            return False
+
+        if state.get("status") != "WAITING_FOR_USER":
+            return False
+
+        # Update status to CODING
+        state["status"] = "CODING"
+        storage.save_state(session_id, state)
+        storage.set_session_status(session_id, "QUEUED") # Re-queue status
+
+        # Re-enqueue
+        # Note: Parameters are redundant if worker loads from state, but queue_manager requires them.
+        # We can pass empty strings for goal/repo as they should be in the saved state.
+        # However, to be safe and consistent with queue_manager signature:
+        queue_manager.enqueue(
+            session_id,
+            state.get("goal", ""),
+            state.get("repo_url", ""),
+            state.get("base_branch"),
+            state.get("mode", "auto")
+        )
+        return True
 
     def get_session_status(self, session_id: str) -> Dict[str, Any]:
         """API Side: Read status"""

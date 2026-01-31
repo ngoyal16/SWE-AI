@@ -18,6 +18,10 @@ class BaseStorage(ABC):
     def set_result(self, session_id: str, result: str): pass
     @abstractmethod
     def get_result(self, session_id: str) -> Optional[str]: pass
+    @abstractmethod
+    def save_state(self, session_id: str, state: Dict[str, Any]): pass
+    @abstractmethod
+    def get_state(self, session_id: str) -> Optional[Dict[str, Any]]: pass
 
 class FileStorage(BaseStorage):
     def __init__(self, data_dir: str = None):
@@ -31,10 +35,12 @@ class FileStorage(BaseStorage):
             try:
                 with open(self.sessions_file, "r") as f:
                     self.data = json.load(f)
+                    if "states" not in self.data:
+                        self.data["states"] = {}
             except json.JSONDecodeError:
-                self.data = {"sessions": {}, "logs": {}, "results": {}}
+                self.data = {"sessions": {}, "logs": {}, "results": {}, "states": {}}
         else:
-            self.data = {"sessions": {}, "logs": {}, "results": {}}
+            self.data = {"sessions": {}, "logs": {}, "results": {}, "states": {}}
 
     def _save(self):
         with open(self.sessions_file, "w") as f:
@@ -69,6 +75,15 @@ class FileStorage(BaseStorage):
         self._load()
         return self.data["results"].get(session_id)
 
+    def save_state(self, session_id: str, state: Dict[str, Any]):
+        self._load()
+        self.data["states"][session_id] = state
+        self._save()
+
+    def get_state(self, session_id: str) -> Optional[Dict[str, Any]]:
+        self._load()
+        return self.data["states"].get(session_id)
+
 class RedisStorage(BaseStorage):
     def __init__(self):
         self.redis = redis.from_url(settings.REDIS_URL)
@@ -95,6 +110,13 @@ class RedisStorage(BaseStorage):
     def get_result(self, session_id: str) -> Optional[str]:
         res = self.redis.get(f"session:{session_id}:result")
         return res.decode('utf-8') if res else None
+
+    def save_state(self, session_id: str, state: Dict[str, Any]):
+        self.redis.set(f"session:{session_id}:state", json.dumps(state), ex=self.ttl)
+
+    def get_state(self, session_id: str) -> Optional[Dict[str, Any]]:
+        state = self.redis.get(f"session:{session_id}:state")
+        return json.loads(state) if state else None
 
 # Factory
 def get_storage():
