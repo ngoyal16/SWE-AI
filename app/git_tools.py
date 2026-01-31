@@ -1,9 +1,48 @@
 import os
 import re
+import json
+from urllib.parse import urlparse, urlunparse
 from langchain_core.tools import StructuredTool
 from app.config import settings
 from app.sandbox.base import Sandbox
 from typing import Optional, List
+
+def _add_auth_to_url(repo_url: str) -> str:
+    """Adds authentication credentials to the repository URL if needed."""
+    if not repo_url.startswith("https://"):
+        return repo_url
+
+    parsed = urlparse(repo_url)
+    # Check if auth is already present (username in netloc)
+    if "@" in parsed.netloc:
+        return repo_url
+
+    hostname = parsed.hostname
+    token = None
+    username = settings.GIT_USERNAME or "oauth2"
+
+    # 1. Check Specific Host Tokens (Self-Hosted / Custom)
+    if settings.GIT_HOST_TOKENS:
+        try:
+            host_tokens = json.loads(settings.GIT_HOST_TOKENS)
+            if hostname and hostname in host_tokens:
+                token = host_tokens[hostname]
+        except json.JSONDecodeError:
+            pass # Ignore invalid JSON
+
+    # 2. Fallback to Generic Token
+    if not token and settings.GIT_TOKEN:
+         token = settings.GIT_TOKEN
+
+    if token:
+        # Reconstruct URL with auth
+        # netloc is "hostname" or "hostname:port"
+        # we want "username:token@netloc"
+        new_netloc = f"{username}:{token}@{parsed.netloc}"
+        parsed = parsed._replace(netloc=new_netloc)
+        return urlunparse(parsed)
+
+    return repo_url
 
 def validate_branch_name(branch_name: str) -> tuple[bool, str]:
     # Regex: strict "type/kebab-case"
@@ -26,9 +65,7 @@ def clone_repo(sandbox: Sandbox, repo_url: str) -> str:
          sandbox.set_cwd(workspace_root)
          return f"Repository already exists at {workspace_root}"
 
-    final_url = repo_url
-    if settings.GIT_TOKEN and repo_url.startswith("https://"):
-        final_url = repo_url.replace("https://", f"https://oauth2:{settings.GIT_TOKEN}@")
+    final_url = _add_auth_to_url(repo_url)
 
     # Clone directly into current directory (root)
     res = sandbox.run_command(f"git clone {final_url} .", workspace_root)
@@ -43,8 +80,9 @@ def clone_repo(sandbox: Sandbox, repo_url: str) -> str:
          return f"Failed to clone: {res}"
 
     if "Error" not in res and "fatal" not in res:
-        sandbox.run_command(f"git config user.name '{settings.GIT_USERNAME}'", workspace_root)
-        sandbox.run_command(f"git config user.email '{settings.GIT_EMAIL}'", workspace_root)
+        # Use commit author settings for git config
+        sandbox.run_command(f"git config user.name '{settings.GIT_COMMIT_AUTHOR_NAME}'", workspace_root)
+        sandbox.run_command(f"git config user.email '{settings.GIT_COMMIT_AUTHOR_EMAIL}'", workspace_root)
         # Optimization: Update sandbox CWD to repo path
         sandbox.set_cwd(workspace_root)
         return f"Successfully cloned to {workspace_root}"
