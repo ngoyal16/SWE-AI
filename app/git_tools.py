@@ -19,7 +19,7 @@ def _add_auth_to_url(repo_url: str) -> str:
 
     hostname = parsed.hostname
     token = None
-    username = "oauth2" # Default username for tokens
+    username = settings.GIT_USERNAME or "oauth2"
 
     # 1. Check Specific Host Tokens (Self-Hosted / Custom)
     if settings.GIT_HOST_TOKENS:
@@ -30,15 +30,7 @@ def _add_auth_to_url(repo_url: str) -> str:
         except json.JSONDecodeError:
             pass # Ignore invalid JSON
 
-    # 2. Check Known Providers
-    if not token:
-        if hostname == "github.com":
-            token = settings.GITHUB_TOKEN or settings.GIT_TOKEN
-        elif hostname == "gitlab.com":
-            token = settings.GITLAB_TOKEN
-        # If no specific provider match, check fallback below
-
-    # 3. Fallback to Generic Token (Legacy behavior)
+    # 2. Fallback to Generic Token
     if not token and settings.GIT_TOKEN:
          token = settings.GIT_TOKEN
 
