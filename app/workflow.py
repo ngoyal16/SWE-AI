@@ -6,7 +6,7 @@ from langchain_core.tools import Tool
 
 from app.llm import get_llm
 from app.tools import create_filesystem_tools
-from app.git_tools import create_git_tools, init_workspace, commit_changes, create_branch, push_changes
+from app.git_tools import create_git_tools, init_workspace, commit_changes, create_branch, push_changes, checkout_branch
 from app.storage import storage
 from app.callbacks import SessionCallbackHandler
 
@@ -136,8 +136,20 @@ def branch_naming_node(state: AgentState) -> AgentState:
         log_update(state, f"Branch name already exists: {state['branch_name']}. Skipping generation.")
         # Make sure it's checked out
         sandbox = get_active_sandbox(state["session_id"])
-        res = create_branch(sandbox, state["branch_name"])
-        log_update(state, f"Branch checkout result: {res}")
+
+        # Try to checkout first
+        res = checkout_branch(sandbox, state["branch_name"])
+        if "error" in res.lower() or "fatal" in res.lower() or "did not match any file" in res.lower():
+             # If checkout fails (e.g. branch deleted or clean sandbox), try creating it
+             log_update(state, f"Branch checkout failed ({res}). Creating branch...")
+             res = create_branch(sandbox, state["branch_name"])
+
+        log_update(state, f"Branch checkout/creation result: {res}")
+
+        if "error" in res.lower() or "fatal" in res.lower():
+             state["status"] = "FAILED"
+             return state
+
         state["status"] = "CODING"
         return state
 
@@ -384,9 +396,16 @@ class WorkflowManager:
                     state["goal"] += new_input_str
                     state["status"] = "PLANNING"
 
-                    # Clear pending inputs in storage to avoid re-processing
-                    stored_state["pending_inputs"] = []
-                    storage.save_state(state["session_id"], stored_state)
+                    # Clear pending inputs safely (re-read to minimize race condition)
+                    # We remove the inputs we just processed
+                    latest_stored_state = storage.get_state(state["session_id"])
+                    if latest_stored_state and "pending_inputs" in latest_stored_state:
+                         # Remove the exact number of items we processed from the front
+                         processed_count = len(inputs)
+                         current_pending = latest_stored_state["pending_inputs"]
+                         if len(current_pending) >= processed_count:
+                             latest_stored_state["pending_inputs"] = current_pending[processed_count:]
+                             storage.save_state(state["session_id"], latest_stored_state)
 
             current_status = state["status"]
 
