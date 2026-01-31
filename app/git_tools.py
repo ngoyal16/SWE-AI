@@ -105,7 +105,39 @@ def create_git_tools(sandbox: Sandbox, base_branch: Optional[str] = None) -> Lis
 
         return sandbox.run_command(f"git push {remote} {branch}", target)
 
+    def setup_workspace(repo_url: str, base_branch: Optional[str] = None) -> str:
+        """
+        Sets up the workspace by cloning the repository and checking out the base branch.
+        """
+        # 1. Clone
+        clone_res = clone_repo(repo_url)
+        if "Error" in clone_res and "Repository already exists" not in clone_res:
+            return clone_res
+
+        output = [clone_res]
+
+        # 2. Checkout Base Branch
+        if base_branch:
+            # Ensure we are in the repo
+            repo_path = get_repo_path()
+            if "No repository" in repo_path:
+                return f"{clone_res}\nError: Could not find repository path."
+
+            # Fetch to ensure remote branches are visible
+            if "Repository already exists" in clone_res:
+                sandbox.run_command("git fetch --all", repo_path)
+
+            checkout_res = sandbox.run_command(f"git checkout {base_branch}", repo_path)
+
+            if "error" in checkout_res.lower() or "fatal" in checkout_res.lower() or "did not match any file" in checkout_res.lower():
+                output.append(f"Warning: Base branch '{base_branch}' not found or could not be checked out. Keeping default branch.")
+            else:
+                output.append(f"Checked out base branch '{base_branch}'.")
+
+        return "\n".join(output)
+
     return [
+        StructuredTool.from_function(setup_workspace, name="setup_workspace", description="Sets up the workspace by cloning the repository and checking out the base branch."),
         StructuredTool.from_function(clone_repo, name="clone_repo", description="Clones a git repository into the workspace."),
         StructuredTool.from_function(create_branch, name="create_branch", description="Creates and switches to a new branch."),
         StructuredTool.from_function(checkout_branch, name="checkout_branch", description="Switches to an existing branch."),
