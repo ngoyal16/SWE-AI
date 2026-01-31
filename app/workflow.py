@@ -126,11 +126,7 @@ def branch_naming_node(state: AgentState) -> AgentState:
         sandbox = get_active_sandbox(state["session_id"])
         res = create_branch(sandbox, state["branch_name"])
         log_update(state, f"Branch checkout result: {res}")
-        if state.get("mode") == "review":
-             state["status"] = "WAITING_FOR_USER"
-             state["next_status"] = "CODING"
-        else:
-             state["status"] = "CODING"
+        state["status"] = "CODING"
         return state
 
     prompt = ChatPromptTemplate.from_messages([
@@ -175,13 +171,7 @@ Rules:
         log_update(state, f"Branch creation failed: {res}")
         return state
 
-    if state.get("mode") == "review":
-        state["status"] = "WAITING_FOR_USER"
-        state["next_status"] = "CODING"
-        log_update(state, "Branch created. Waiting for user approval.")
-    else:
-        state["status"] = "CODING"
-
+    state["status"] = "CODING"
     return state
 
 # --- PROGRAMMER AGENT ---

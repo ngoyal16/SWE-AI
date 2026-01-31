@@ -27,6 +27,7 @@ class TestWorkflow(unittest.TestCase):
                  state["status"] = "BRANCH_NAMING"
             return state
         def branch_naming_side_effect(state):
+            # Should go directly to CODING regardless of mode
             state["status"] = "CODING"
             return state
         def programmer_side_effect(state):
