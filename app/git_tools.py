@@ -15,31 +15,39 @@ def validate_branch_name(branch_name: str) -> tuple[bool, str]:
 
 def clone_repo(sandbox: Sandbox, repo_url: str) -> str:
     """Clones a git repository into the workspace. Returns the path to the cloned repo."""
-    repo_name = repo_url.split("/")[-1].replace(".git", "")
     # Use sandbox root
     workspace_root = sandbox.get_root_path()
-    target_path = os.path.join(workspace_root, repo_name)
 
     # Check if exists (requires list_files or check command)
-    # Using command is safer across sandbox types
-    check = sandbox.run_command(f"test -d {repo_name} && echo EXISTS")
+    # Check for .git directory in root
+    check = sandbox.run_command("test -d .git && echo EXISTS")
     if "EXISTS" in check:
-         # Optimization: Set CWD if it exists
-         sandbox.set_cwd(target_path)
-         return f"Repository already exists at {target_path}"
+         # Optimization: Set CWD
+         sandbox.set_cwd(workspace_root)
+         return f"Repository already exists at {workspace_root}"
 
     final_url = repo_url
     if settings.GIT_TOKEN and repo_url.startswith("https://"):
         final_url = repo_url.replace("https://", f"https://oauth2:{settings.GIT_TOKEN}@")
 
-    res = sandbox.run_command(f"git clone {final_url} {repo_name}", workspace_root)
+    # Clone directly into current directory (root)
+    res = sandbox.run_command(f"git clone {final_url} .", workspace_root)
 
-    if "Error" not in res:
-        sandbox.run_command(f"git config user.name '{settings.GIT_USERNAME}'", target_path)
-        sandbox.run_command(f"git config user.email '{settings.GIT_EMAIL}'", target_path)
+    # Handle "directory already exists and is not an empty directory" if .git didn't exist but files did
+    if "already exists" in res and "not an empty directory" in res:
+         # This implies files are there but maybe not .git, or .git check failed.
+         # But if we want to be safe and assume it might be a valid repo or just artifact files:
+         # For now, let's treat it as failure if it's not a git repo, or success if we decide so.
+         # But the user request specifically says "clone should be at session id root".
+         # If files exist, git clone . fails.
+         return f"Failed to clone: {res}"
+
+    if "Error" not in res and "fatal" not in res:
+        sandbox.run_command(f"git config user.name '{settings.GIT_USERNAME}'", workspace_root)
+        sandbox.run_command(f"git config user.email '{settings.GIT_EMAIL}'", workspace_root)
         # Optimization: Update sandbox CWD to repo path
-        sandbox.set_cwd(target_path)
-        return f"Successfully cloned to {target_path}"
+        sandbox.set_cwd(workspace_root)
+        return f"Successfully cloned to {workspace_root}"
     return res
 
 def get_repo_path(sandbox: Sandbox, provided_path: Optional[str] = None) -> str:
@@ -47,18 +55,8 @@ def get_repo_path(sandbox: Sandbox, provided_path: Optional[str] = None) -> str:
     if provided_path:
          return provided_path
 
-    # Optimization: Use sandbox CWD if explicitly set and distinct from root
-    cwd = sandbox.get_cwd()
-    root = sandbox.get_root_path()
-    if cwd and cwd != root:
-        return cwd
-
-    # Fallback: List files (network call)
-    ls = sandbox.list_files(".")
-    dirs = [d.strip("/") for d in ls.splitlines() if d.strip().endswith("/")]
-    if not dirs:
-        return "No repository found in workspace."
-    return dirs[0] # Assume first dir is repo
+    # Always return root path as we clone into root
+    return sandbox.get_root_path()
 
 def create_branch(sandbox: Sandbox, branch_name: str, repo_path: Optional[str] = None) -> str:
     """Creates and switches to a new branch."""
@@ -67,19 +65,16 @@ def create_branch(sandbox: Sandbox, branch_name: str, repo_path: Optional[str] =
         return error_msg
 
     target = get_repo_path(sandbox, repo_path)
-    if "No repository" in target: return target
     return sandbox.run_command(f"git checkout -b {branch_name}", target)
 
 def checkout_branch(sandbox: Sandbox, branch_name: str, repo_path: Optional[str] = None) -> str:
     """Switches to an existing branch."""
     target = get_repo_path(sandbox, repo_path)
-    if "No repository" in target: return target
     return sandbox.run_command(f"git checkout {branch_name}", target)
 
 def commit_changes(sandbox: Sandbox, message: str, repo_path: Optional[str] = None) -> str:
     """Stages all changes and commits them."""
     target = get_repo_path(sandbox, repo_path)
-    if "No repository" in target: return target
 
     add_res = sandbox.run_command("git add .", target)
     if "Error" in add_res:
@@ -99,8 +94,6 @@ def push_changes(sandbox: Sandbox, base_branch: Optional[str], remote: str = "or
         return f"Error: Cannot push to protected or base branch '{branch}'. Please push to your feature branch."
 
     target = get_repo_path(sandbox, repo_path)
-    if "No repository" in target: return target
-
     return sandbox.run_command(f"git push {remote} {branch}", target)
 
 def init_workspace(sandbox: Sandbox, repo_url: str, base_branch: Optional[str] = None) -> str:
@@ -109,7 +102,7 @@ def init_workspace(sandbox: Sandbox, repo_url: str, base_branch: Optional[str] =
     """
     # 1. Clone
     clone_res = clone_repo(sandbox, repo_url)
-    if "Error" in clone_res and "Repository already exists" not in clone_res:
+    if ("Error" in clone_res or "fatal" in clone_res or "Failed" in clone_res) and "Repository already exists" not in clone_res:
         return clone_res
 
     output = [clone_res]

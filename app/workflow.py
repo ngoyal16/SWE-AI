@@ -205,7 +205,7 @@ class WorkflowManager:
         to avoid blocking the main asyncio loop.
         """
         # Initialize workspace before starting the agent loop
-        if state["status"] == "PLANNING":
+        if state.get("status", "PLANNING") == "PLANNING":
              # Only initialize if just starting
              try:
                 sandbox = get_active_sandbox(state["session_id"])
@@ -217,6 +217,10 @@ class WorkflowManager:
                 log_update(state, f"Failed to initialize workspace: {str(e)}")
                 state["status"] = "FAILED"
                 return state
+
+        # Ensure status is set to PLANNING if not already set (e.g. fresh state)
+        if "status" not in state:
+            state["status"] = "PLANNING"
 
         # Max steps to prevent infinite loops
         max_steps = 50 # Increased to handle complex tasks
