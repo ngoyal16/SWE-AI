@@ -6,15 +6,25 @@ from app.config import settings
 # Bypass SSL verification for self-signed certificates
 try:
     import urllib3
+    import ssl
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    
+    # Global SSL context patch
     ssl._create_default_https_context = ssl._create_unverified_context
-    # Deep patch for urllib3
-    from urllib3.util import ssl_
-    original_create_urllib3_context = ssl_.create_urllib3_context
-    def unverified_create_urllib3_context(*args, **kwargs):
+    
+    # Aggressive urllib3 PoolManager patch
+    original_pool_manager_init = urllib3.PoolManager.__init__
+    def patched_pool_manager_init(self, *args, **kwargs):
         kwargs['cert_reqs'] = ssl.CERT_NONE
-        return original_create_urllib3_context(*args, **kwargs)
-    ssl_.create_urllib3_context = unverified_create_urllib3_context
+        original_pool_manager_init(self, *args, **kwargs)
+    urllib3.PoolManager.__init__ = patched_pool_manager_init
+
+    original_proxy_manager_init = urllib3.ProxyManager.__init__
+    def patched_proxy_manager_init(self, *args, **kwargs):
+        kwargs['cert_reqs'] = ssl.CERT_NONE
+        original_proxy_manager_init(self, *args, **kwargs)
+    urllib3.ProxyManager.__init__ = patched_proxy_manager_init
+
 except (AttributeError, ImportError):
     pass
 
@@ -42,11 +52,6 @@ class DaytonaSandbox(Sandbox):
         )
         self.daytona = Daytona(config)
 
-        # Explicitly disable SSL verification on the internal api clients if they exist
-        if hasattr(self.daytona, '_api_client'):
-            self.daytona._api_client.configuration.verify_ssl = False
-        if hasattr(self.daytona, '_sandbox_api'):
-            self.daytona._sandbox_api.api_client.configuration.verify_ssl = False
 
 
         # Check if sandbox already exists (resuming?)
