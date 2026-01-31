@@ -21,8 +21,9 @@ class AgentState(TypedDict):
     current_step: int
     review_feedback: Optional[str]
     plan_critic_feedback: Optional[str]
-    status: str # "PLANNING", "PLAN_CRITIC", "CODING", "REVIEWING", "COMPLETED", "FAILED"
+    status: str # "PLANNING", "PLAN_CRITIC", "CODING", "REVIEWING", "COMPLETED", "FAILED", "WAITING_FOR_USER"
     logs: List[str]
+    mode: str # "auto", "review"
 
 def log_update(state: AgentState, message: str):
     state["logs"].append(message)
@@ -109,7 +110,11 @@ def plan_critic_node(state: AgentState) -> AgentState:
     feedback = chain.invoke({"goal": state["goal"], "plan": state["plan"]}, config={"callbacks": callbacks})
 
     if "APPROVED" in feedback:
-        state["status"] = "CODING"
+        if state.get("mode") == "review":
+            state["status"] = "WAITING_FOR_USER"
+            log_update(state, "Plan Critic Approved. Waiting for user approval.")
+        else:
+            state["status"] = "CODING"
         state["plan_critic_feedback"] = None
         log_update(state, "Plan Critic Approved.")
     else:
@@ -238,6 +243,10 @@ class WorkflowManager:
                 state = programmer_node(state)
             elif current_status == "REVIEWING":
                 state = reviewer_node(state)
+            elif current_status == "WAITING_FOR_USER":
+                log_update(state, "Pausing workflow for user approval.")
+                storage.save_state(state["session_id"], state)
+                return state
 
         if steps >= max_steps:
             state["status"] = "FAILED"
