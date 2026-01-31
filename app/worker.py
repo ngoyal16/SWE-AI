@@ -5,7 +5,6 @@ from app.agent import AgentManager
 from app.workflow import WorkflowManager, AgentState
 from app.storage import storage
 from app.config import settings
-from app.sandbox.k8s import K8sSandbox
 from app.sandbox.local import LocalSandbox
 from app.sandbox.daytona import DaytonaSandbox
 
@@ -25,9 +24,7 @@ def run_agent_session_sync(session_id: str, goal: str, repo_url: str = "", base_
         log_message(session_id, f"Worker picked up session: {goal} on repo {repo_url} (base branch: {base_branch}, mode: {mode})")
 
         # Initialize Sandbox
-        if settings.SANDBOX_TYPE == "k8s":
-            sandbox = K8sSandbox(session_id)
-        elif settings.SANDBOX_TYPE == "daytona":
+        if settings.SANDBOX_TYPE == "daytona":
             sandbox = DaytonaSandbox(session_id)
         else:
             sandbox = LocalSandbox(session_id)
