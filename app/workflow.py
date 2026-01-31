@@ -7,6 +7,8 @@ from langchain_core.tools import Tool
 from app.llm import get_llm
 from app.tools import create_filesystem_tools
 from app.git_tools import create_git_tools
+from app.storage import storage
+from app.callbacks import SessionCallbackHandler
 
 # Define the state of the workflow
 class AgentState(TypedDict):
@@ -22,6 +24,10 @@ class AgentState(TypedDict):
     status: str # "PLANNING", "PLAN_CRITIC", "CODING", "REVIEWING", "COMPLETED", "FAILED"
     logs: List[str]
 
+def log_update(state: AgentState, message: str):
+    state["logs"].append(message)
+    storage.append_log(state["session_id"], message)
+
 def get_active_sandbox(session_id: str):
     # Retrieve the sandbox from the AgentManager (circular import workaround or registry pattern)
     from app.agent import AgentManager
@@ -35,6 +41,7 @@ def get_active_sandbox(session_id: str):
 def planner_node(state: AgentState) -> AgentState:
     print(f"[{state['session_id']}] PLANNER: Generating plan...")
     llm = get_llm()
+    callbacks = [SessionCallbackHandler(state["session_id"])]
 
     context_str = ""
     if state.get("plan_critic_feedback"):
@@ -81,17 +88,18 @@ IMPORTANT:
         "base_branch": state.get("base_branch") or "Default",
         "session_id": state["session_id"],
         "context": context_str
-    })
+    }, config={"callbacks": callbacks})
 
     state["plan"] = plan
     state["status"] = "PLAN_CRITIC"
-    state["logs"].append(f"Plan generated: {plan}")
+    log_update(state, f"Plan generated: {plan}")
     return state
 
 # --- PLAN CRITIC AGENT ---
 def plan_critic_node(state: AgentState) -> AgentState:
     print(f"[{state['session_id']}] PLAN CRITIC: Reviewing plan...")
     llm = get_llm()
+    callbacks = [SessionCallbackHandler(state["session_id"])]
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", "You are a Technical Plan Critic. Review the proposed plan for safety, completeness, and feasibility. If the plan is good, respond with 'APPROVED'. If not, provide specific, constructive feedback on what steps are missing or dangerous."),
@@ -99,16 +107,16 @@ def plan_critic_node(state: AgentState) -> AgentState:
     ])
 
     chain = prompt | llm | StrOutputParser()
-    feedback = chain.invoke({"goal": state["goal"], "plan": state["plan"]})
+    feedback = chain.invoke({"goal": state["goal"], "plan": state["plan"]}, config={"callbacks": callbacks})
 
     if "APPROVED" in feedback:
         state["status"] = "CODING"
         state["plan_critic_feedback"] = None
-        state["logs"].append("Plan Critic Approved.")
+        log_update(state, "Plan Critic Approved.")
     else:
         state["status"] = "PLANNING"
         state["plan_critic_feedback"] = feedback
-        state["logs"].append(f"Plan Critic Feedback: {feedback}")
+        log_update(state, f"Plan Critic Feedback: {feedback}")
 
     return state
 
@@ -116,6 +124,7 @@ def plan_critic_node(state: AgentState) -> AgentState:
 def programmer_node(state: AgentState) -> AgentState:
     print(f"[{state['session_id']}] PROGRAMMER: Executing plan...")
     llm = get_llm()
+    callbacks = [SessionCallbackHandler(state["session_id"])]
 
     try:
         sandbox = get_active_sandbox(state["session_id"])
@@ -137,12 +146,12 @@ def programmer_node(state: AgentState) -> AgentState:
         agent = create_tool_calling_agent(llm, tools, prompt)
         agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=15)
 
-        result = agent_executor.invoke({"goal": state["goal"], "context": context_str})
+        result = agent_executor.invoke({"goal": state["goal"], "context": context_str}, config={"callbacks": callbacks})
         output = result.get("output", "")
-        state["logs"].append(f"Programmer output: {output}")
+        log_update(state, f"Programmer output: {output}")
         state["status"] = "REVIEWING"
     except Exception as e:
-        state["logs"].append(f"Programmer error: {str(e)}")
+        log_update(state, f"Programmer error: {str(e)}")
         state["status"] = "FAILED"
 
     return state
@@ -151,6 +160,7 @@ def programmer_node(state: AgentState) -> AgentState:
 def reviewer_node(state: AgentState) -> AgentState:
     print(f"[{state['session_id']}] REVIEWER: Reviewing changes...")
     llm = get_llm()
+    callbacks = [SessionCallbackHandler(state["session_id"])]
 
     try:
         sandbox = get_active_sandbox(state["session_id"])
@@ -166,21 +176,21 @@ def reviewer_node(state: AgentState) -> AgentState:
         agent = create_tool_calling_agent(llm, tools, prompt)
         agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=5)
 
-        result = agent_executor.invoke({"goal": state["goal"], "plan": state["plan"]})
+        result = agent_executor.invoke({"goal": state["goal"], "plan": state["plan"]}, config={"callbacks": callbacks})
         output = result.get("output", "")
 
         if "APPROVED" in output:
             state["status"] = "COMPLETED"
             state["review_feedback"] = None
-            state["logs"].append("Reviewer Approved.")
+            log_update(state, "Reviewer Approved.")
             pass
         else:
             state["status"] = "CODING"
             state["review_feedback"] = output
-            state["logs"].append(f"Reviewer requested changes: {output}")
+            log_update(state, f"Reviewer requested changes: {output}")
 
     except Exception as e:
-        state["logs"].append(f"Reviewer error: {str(e)}")
+        log_update(state, f"Reviewer error: {str(e)}")
         state["status"] = "FAILED"
 
     return state
@@ -216,6 +226,6 @@ class WorkflowManager:
 
         if steps >= max_steps:
             state["status"] = "FAILED"
-            state["logs"].append("Max workflow steps reached.")
+            log_update(state, "Max workflow steps reached.")
 
         return state

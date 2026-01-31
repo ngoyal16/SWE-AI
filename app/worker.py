@@ -53,10 +53,6 @@ def run_agent_session_sync(session_id: str, goal: str, repo_url: str = "", base_
         manager = WorkflowManager()
         final_state = manager.run_workflow_sync(state)
 
-        # Merge logs
-        for log in final_state["logs"]:
-            log_message(session_id, log)
-
         if final_state["status"] == "COMPLETED":
             storage.set_session_status(session_id, "COMPLETED")
             storage.set_result(session_id, "Workflow completed successfully.")
