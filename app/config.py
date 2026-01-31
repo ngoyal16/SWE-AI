@@ -22,6 +22,10 @@ class Config:
 
     GIT_USERNAME = os.getenv("GIT_USERNAME", "swe-agent")
     GIT_EMAIL = os.getenv("GIT_EMAIL", "swe-agent@example.com")
+
+    GIT_COMMIT_AUTHOR_NAME = os.getenv("GIT_COMMIT_AUTHOR_NAME", "swe-agent")
+    GIT_COMMIT_AUTHOR_EMAIL = os.getenv("GIT_COMMIT_AUTHOR_EMAIL", "swe-agent@example.com")
+
     GIT_TOKEN = os.getenv("GIT_TOKEN", "")
     # GIT_HOST_TOKENS should be a JSON string mapping hostname -> token
     GIT_HOST_TOKENS = os.getenv("GIT_HOST_TOKENS", "")

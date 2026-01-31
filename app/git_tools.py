@@ -80,8 +80,9 @@ def clone_repo(sandbox: Sandbox, repo_url: str) -> str:
          return f"Failed to clone: {res}"
 
     if "Error" not in res and "fatal" not in res:
-        sandbox.run_command(f"git config user.name '{settings.GIT_USERNAME}'", workspace_root)
-        sandbox.run_command(f"git config user.email '{settings.GIT_EMAIL}'", workspace_root)
+        # Use commit author settings for git config
+        sandbox.run_command(f"git config user.name '{settings.GIT_COMMIT_AUTHOR_NAME}'", workspace_root)
+        sandbox.run_command(f"git config user.email '{settings.GIT_COMMIT_AUTHOR_EMAIL}'", workspace_root)
         # Optimization: Update sandbox CWD to repo path
         sandbox.set_cwd(workspace_root)
         return f"Successfully cloned to {workspace_root}"
