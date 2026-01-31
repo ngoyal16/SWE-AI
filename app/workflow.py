@@ -27,6 +27,7 @@ class AgentState(TypedDict):
     commit_message: Optional[str]
     branch_name: Optional[str]
     next_status: Optional[str]
+    pending_inputs: List[str]
 
 def log_update(state: AgentState, message: str):
     state["logs"].append(message)
@@ -47,6 +48,12 @@ def planner_node(state: AgentState) -> AgentState:
     llm = get_llm()
     callbacks = [SessionCallbackHandler(state["session_id"])]
 
+    sandbox = get_active_sandbox(state["session_id"])
+    try:
+        files = sandbox.list_files(".")
+    except Exception as e:
+        files = f"Error listing files: {str(e)}"
+
     context_str = ""
     if state.get("plan_critic_feedback"):
         context_str += f"\nPrevious Plan Rejected. Critic Feedback: {state['plan_critic_feedback']}\nPlease improve the plan."
@@ -66,7 +73,7 @@ IMPORTANT:
 - Do NOT include steps for committing or pushing changes. This will be handled automatically.
 - Do NOT include steps for creating the feature branch. The system will generate and create the branch automatically.
 """),
-        ("human", "Goal: {goal}\nRepo: {repo_url}\nBase Branch: {base_branch}\nSession ID: {session_id}\nContext: {context}\n\nPlease provide a numbered list of steps to achieve this.")
+        ("human", "Goal: {goal}\nRepo: {repo_url}\nBase Branch: {base_branch}\nSession ID: {session_id}\nFiles:\n{files}\nContext: {context}\n\nPlease provide a numbered list of steps to achieve this.")
     ])
 
     chain = prompt | llm | StrOutputParser()
@@ -75,6 +82,7 @@ IMPORTANT:
         "repo_url": state["repo_url"],
         "base_branch": state.get("base_branch") or "Default",
         "session_id": state["session_id"],
+        "files": files,
         "context": context_str
     }, config={"callbacks": callbacks})
 
@@ -358,6 +366,24 @@ class WorkflowManager:
 
         while state["status"] not in ["COMPLETED", "FAILED"] and steps < max_steps:
             steps += 1
+
+            # Check for pending inputs from storage
+            # We must reload state from storage to check for updates from API
+            stored_state = storage.get_state(state["session_id"])
+            if stored_state and stored_state.get("pending_inputs"):
+                inputs = stored_state["pending_inputs"]
+                # Only interrupt if NOT in CODING phase (as per user request)
+                # If we are in CODING phase, we wait until it completes (transitions to REVIEWING)
+                if state["status"] != "CODING":
+                    log_update(state, f"Received user inputs: {inputs}")
+                    new_input_str = "\n\n[User Input]: " + "\n".join(inputs)
+                    state["goal"] += new_input_str
+                    state["status"] = "PLANNING"
+
+                    # Clear pending inputs in storage to avoid re-processing
+                    stored_state["pending_inputs"] = []
+                    storage.save_state(state["session_id"], stored_state)
+
             current_status = state["status"]
 
             if current_status == "PLANNING":

@@ -20,6 +20,25 @@ def create_filesystem_tools(sandbox: Sandbox) -> List[StructuredTool]:
         """Runs a shell command and returns the output."""
         return sandbox.run_command(command)
 
+    def edit_file(filepath: str, old_str: str, new_str: str) -> str:
+        """Replaces old_str with new_str in the file. Returns success message or error."""
+        try:
+            content = sandbox.read_file(filepath)
+        except Exception as e:
+            return f"Error reading file: {str(e)}"
+
+        if "Error:" in content and len(content) < 200: # Heuristic for error message from sandbox
+             return content
+
+        if old_str not in content:
+            return f"Error: '{old_str}' not found in {filepath}."
+
+        if content.count(old_str) > 1:
+             return f"Error: '{old_str}' found multiple times in {filepath}. Please be more specific."
+
+        new_content = content.replace(old_str, new_str)
+        return sandbox.write_file(filepath, new_content)
+
     return [
         StructuredTool.from_function(
             func=read_file,
@@ -30,6 +49,11 @@ def create_filesystem_tools(sandbox: Sandbox) -> List[StructuredTool]:
             func=write_file,
             name="write_file",
             description="Writes content to a file. Overwrites if it exists."
+        ),
+        StructuredTool.from_function(
+            func=edit_file,
+            name="edit_file",
+            description="Replaces old_str with new_str in the file. Returns success message or error. Ensure old_str is unique."
         ),
         StructuredTool.from_function(
             func=list_files,
