@@ -229,6 +229,24 @@ curl http://localhost:8000/agent/sessions/550e8400-e29b-41d4-a716-446655440000
 }
 ```
 
+### 4. Interact with a Session (Provide Feedback)
+
+You can send additional instructions or feedback to a session at any time.
+
+**Endpoint**: `POST /agent/sessions/{session_id}/input`
+
+```bash
+curl -X POST http://localhost:8000/agent/sessions/550e8400-e29b-41d4-a716-446655440000/input \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Please also update the README with the new changes."
+  }'
+```
+
+**Behavior**:
+*   **If Waiting/Completed**: The agent updates its goal and immediately starts replanning.
+*   **If Coding**: The agent queues your input. Once the current coding iteration is complete, it will pause, incorporate your feedback into the goal, and replan before reviewing.
+
 ---
 
 ## Architecture & Sandbox Details

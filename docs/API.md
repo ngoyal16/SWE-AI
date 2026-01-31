@@ -100,7 +100,32 @@ Resumes a paused session that is in `WAITING_FOR_USER` status.
 
 ---
 
-### 4. Health Check
+### 4. Add Session Input
+Provide additional instructions or feedback to a session.
+
+*   **URL**: `/agent/sessions/{session_id}/input`
+*   **Method**: `POST`
+*   **Content-Type**: `application/json`
+
+#### Request Body
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `message` | string | Yes | The input message or feedback for the agent. |
+
+#### Response (200 OK)
+```json
+{
+  "status": "input_added"
+}
+```
+
+#### Behavior
+*   **Waiting/Completed Sessions**: Immediately updates the goal and triggers replanning.
+*   **Running Sessions (Coding)**: Queues the input. It will be processed after the current coding phase completes.
+
+---
+
+### 5. Health Check
 Checks if the API service is running.
 
 *   **URL**: `/health`

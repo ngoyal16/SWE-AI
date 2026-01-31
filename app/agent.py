@@ -57,6 +57,50 @@ class AgentManager:
         )
         return True
 
+    def add_session_input(self, session_id: str, message: str) -> bool:
+        """API Side: Add user input to a running or paused session"""
+        state = storage.get_state(session_id)
+        if not state:
+            return False
+
+        # Initialize pending_inputs if not present
+        if "pending_inputs" not in state:
+            state["pending_inputs"] = []
+
+        state["pending_inputs"].append(message)
+
+        status = state.get("status")
+
+        # Handle immediate transitions for WAITING_FOR_USER or COMPLETED
+        if status in ["WAITING_FOR_USER", "COMPLETED"]:
+            # Append input to goal immediately and replan
+            new_input_str = "\n\n[User Input]: " + message
+            # If multiple inputs were pending (unlikely if sequential, but possible), consume all
+            if len(state["pending_inputs"]) > 1:
+                new_input_str = "\n\n[User Input]: " + "\n".join(state["pending_inputs"])
+
+            state["goal"] = state.get("goal", "") + new_input_str
+            state["status"] = "PLANNING"
+            state["pending_inputs"] = [] # Clear consumed inputs
+
+            storage.save_state(session_id, state)
+            storage.set_session_status(session_id, "QUEUED")
+
+            # Re-enqueue
+            queue_manager.enqueue(
+                session_id,
+                state.get("goal", ""),
+                state.get("repo_url", ""),
+                state.get("base_branch"),
+                state.get("mode", "auto")
+            )
+            return True
+        else:
+            # For other statuses (CODING, PLANNING, etc.), just save state.
+            # The worker loop will pick up pending_inputs.
+            storage.save_state(session_id, state)
+            return True
+
     def get_session_status(self, session_id: str) -> Dict[str, Any]:
         """API Side: Read status"""
         return {

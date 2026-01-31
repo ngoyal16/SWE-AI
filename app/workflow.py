@@ -6,7 +6,7 @@ from langchain_core.tools import Tool
 
 from app.llm import get_llm
 from app.tools import create_filesystem_tools
-from app.git_tools import create_git_tools, init_workspace, commit_changes, create_branch, push_changes
+from app.git_tools import create_git_tools, init_workspace, commit_changes, create_branch, push_changes, checkout_branch
 from app.storage import storage
 from app.callbacks import SessionCallbackHandler
 
@@ -27,6 +27,7 @@ class AgentState(TypedDict):
     commit_message: Optional[str]
     branch_name: Optional[str]
     next_status: Optional[str]
+    pending_inputs: List[str]
 
 def log_update(state: AgentState, message: str):
     state["logs"].append(message)
@@ -47,9 +48,19 @@ def planner_node(state: AgentState) -> AgentState:
     llm = get_llm()
     callbacks = [SessionCallbackHandler(state["session_id"])]
 
+    sandbox = get_active_sandbox(state["session_id"])
+    try:
+        files = sandbox.list_files(".")
+    except Exception as e:
+        files = f"Error listing files: {str(e)}"
+
     context_str = ""
     if state.get("plan_critic_feedback"):
         context_str += f"\nPrevious Plan Rejected. Critic Feedback: {state['plan_critic_feedback']}\nPlease improve the plan."
+
+    # If replanning (pending inputs or critic feedback), include the previous plan
+    if state.get("plan"):
+        context_str += f"\n\nExisting Plan:\n{state['plan']}\n\nINSTRUCTION: The goal has been updated or feedback received. Refine the Existing Plan to accommodate the new requirements. Do not lose progress if possible, but modify steps as needed."
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", """You are a Senior Technical Planner. Your job is to create a detailed, step-by-step plan to accomplish the user's goal in a software repository. The plan should be clear and actionable for a programmer.
@@ -66,7 +77,7 @@ IMPORTANT:
 - Do NOT include steps for committing or pushing changes. This will be handled automatically.
 - Do NOT include steps for creating the feature branch. The system will generate and create the branch automatically.
 """),
-        ("human", "Goal: {goal}\nRepo: {repo_url}\nBase Branch: {base_branch}\nSession ID: {session_id}\nContext: {context}\n\nPlease provide a numbered list of steps to achieve this.")
+        ("human", "Goal: {goal}\nRepo: {repo_url}\nBase Branch: {base_branch}\nSession ID: {session_id}\nFiles:\n{files}\nContext: {context}\n\nPlease provide a numbered list of steps to achieve this.")
     ])
 
     chain = prompt | llm | StrOutputParser()
@@ -75,6 +86,7 @@ IMPORTANT:
         "repo_url": state["repo_url"],
         "base_branch": state.get("base_branch") or "Default",
         "session_id": state["session_id"],
+        "files": files,
         "context": context_str
     }, config={"callbacks": callbacks})
 
@@ -124,8 +136,20 @@ def branch_naming_node(state: AgentState) -> AgentState:
         log_update(state, f"Branch name already exists: {state['branch_name']}. Skipping generation.")
         # Make sure it's checked out
         sandbox = get_active_sandbox(state["session_id"])
-        res = create_branch(sandbox, state["branch_name"])
-        log_update(state, f"Branch checkout result: {res}")
+
+        # Try to checkout first
+        res = checkout_branch(sandbox, state["branch_name"])
+        if "error" in res.lower() or "fatal" in res.lower() or "did not match any file" in res.lower():
+             # If checkout fails (e.g. branch deleted or clean sandbox), try creating it
+             log_update(state, f"Branch checkout failed ({res}). Creating branch...")
+             res = create_branch(sandbox, state["branch_name"])
+
+        log_update(state, f"Branch checkout/creation result: {res}")
+
+        if "error" in res.lower() or "fatal" in res.lower():
+             state["status"] = "FAILED"
+             return state
+
         state["status"] = "CODING"
         return state
 
@@ -358,6 +382,31 @@ class WorkflowManager:
 
         while state["status"] not in ["COMPLETED", "FAILED"] and steps < max_steps:
             steps += 1
+
+            # Check for pending inputs from storage
+            # We must reload state from storage to check for updates from API
+            stored_state = storage.get_state(state["session_id"])
+            if stored_state and stored_state.get("pending_inputs"):
+                inputs = stored_state["pending_inputs"]
+                # Only interrupt if NOT in CODING phase (as per user request)
+                # If we are in CODING phase, we wait until it completes (transitions to REVIEWING)
+                if state["status"] != "CODING":
+                    log_update(state, f"Received user inputs: {inputs}")
+                    new_input_str = "\n\n[User Input]: " + "\n".join(inputs)
+                    state["goal"] += new_input_str
+                    state["status"] = "PLANNING"
+
+                    # Clear pending inputs safely (re-read to minimize race condition)
+                    # We remove the inputs we just processed
+                    latest_stored_state = storage.get_state(state["session_id"])
+                    if latest_stored_state and "pending_inputs" in latest_stored_state:
+                         # Remove the exact number of items we processed from the front
+                         processed_count = len(inputs)
+                         current_pending = latest_stored_state["pending_inputs"]
+                         if len(current_pending) >= processed_count:
+                             latest_stored_state["pending_inputs"] = current_pending[processed_count:]
+                             storage.save_state(state["session_id"], latest_stored_state)
+
             current_status = state["status"]
 
             if current_status == "PLANNING":
