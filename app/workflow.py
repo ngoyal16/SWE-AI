@@ -6,7 +6,7 @@ from langchain_core.tools import Tool
 
 from app.llm import get_llm
 from app.tools import create_filesystem_tools
-from app.git_tools import create_git_tools, init_workspace
+from app.git_tools import create_git_tools, init_workspace, commit_changes
 from app.storage import storage
 from app.callbacks import SessionCallbackHandler
 
@@ -21,9 +21,10 @@ class AgentState(TypedDict):
     current_step: int
     review_feedback: Optional[str]
     plan_critic_feedback: Optional[str]
-    status: str # "PLANNING", "PLAN_CRITIC", "CODING", "REVIEWING", "COMPLETED", "FAILED", "WAITING_FOR_USER"
+    status: str # "PLANNING", "PLAN_CRITIC", "CODING", "REVIEWING", "COMMITTING", "COMPLETED", "FAILED", "WAITING_FOR_USER"
     logs: List[str]
     mode: str # "auto", "review"
+    commit_message: Optional[str]
 
 def log_update(state: AgentState, message: str):
     state["logs"].append(message)
@@ -61,22 +62,13 @@ You are a strict adherent to Conventional Commits and Git Flow. You must follow 
    - NEVER use colons (:) in branch names.
    - ALWAYS append the session ID (`-{session_id}`) to the generated branch name to make it unique.
 
-2. COMMIT MESSAGES:
-   - Format: `type(scope): description`
-   - Allowed Types: `feat`, `fix`, `chore`, `docs`, `style`, `refactor`, `test`.
-   - The description must be lowercase and present tense ("add" not "added").
-   - Example: `feat(auth): add google oauth login support`
-
-3. PR TITLES:
-   - Same format as Commit Messages.
-   - Example: `fix(ui): align save button on mobile`
-
 The repository is already cloned and checked out to the base branch. Start your plan by generating a suitable branch name and including a step to create it.
 
 IMPORTANT:
 - The `Base Branch` provided is ONLY for checking out the starting state.
 - You must NEVER commit directly to the Base Branch or Default Branch.
 - You must ALWAYS create a new feature branch from the Base Branch before making any changes.
+- Do NOT include steps for committing or pushing changes. This will be handled automatically.
 """),
         ("human", "Goal: {goal}\nRepo: {repo_url}\nBase Branch: {base_branch}\nSession ID: {session_id}\nContext: {context}\n\nPlease provide a numbered list of steps to achieve this.")
     ])
@@ -134,7 +126,10 @@ def programmer_node(state: AgentState) -> AgentState:
         sandbox = get_active_sandbox(state["session_id"])
         # Initialize tools with specific sandbox
         base_branch = state.get("base_branch")
-        tools = create_filesystem_tools(sandbox) + create_git_tools(sandbox, base_branch)
+        all_git_tools = create_git_tools(sandbox, base_branch)
+        # Filter out commit and push tools to prevent premature commits
+        allowed_git_tools = [t for t in all_git_tools if t.name not in ["commit_changes", "push_changes"]]
+        tools = create_filesystem_tools(sandbox) + allowed_git_tools
 
         # Context includes the plan and previous feedback
         context_str = f"Plan:\n{state['plan']}\n"
@@ -142,7 +137,7 @@ def programmer_node(state: AgentState) -> AgentState:
             context_str += f"\nReview Feedback (Fix these issues):\n{state['review_feedback']}\n"
 
         prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are a Skilled Software Engineer. You have access to tools to modify the file system and run git commands. Follow the plan to implement the requested changes. If there is review feedback, address it."),
+            ("system", "You are a Skilled Software Engineer. You have access to tools to modify the file system and run git commands. Follow the plan to implement the requested changes. Do not commit changes. Just modify the files. If there is review feedback, address it."),
             ("human", "Goal: {goal}\nContext:\n{context}\n\nExecute the necessary changes. When finished with the current iteration of changes, simply respond with 'CHANGES_COMPLETE'."),
             ("placeholder", "{agent_scratchpad}"),
         ])
@@ -157,6 +152,62 @@ def programmer_node(state: AgentState) -> AgentState:
     except Exception as e:
         log_update(state, f"Programmer error: {str(e)}")
         state["status"] = "FAILED"
+
+    return state
+
+# --- COMMIT MSG AGENT ---
+def commit_msg_node(state: AgentState) -> AgentState:
+    print(f"[{state['session_id']}] COMMIT_MSG: Generating commit message...")
+    llm = get_llm()
+    callbacks = [SessionCallbackHandler(state["session_id"])]
+
+    sandbox = get_active_sandbox(state["session_id"])
+
+    # Stage all changes to ensure untracked files are included in the diff
+    sandbox.run_command("git add .")
+
+    # Get diff of staged changes
+    # We use --cached because we just staged everything
+    diff = sandbox.run_command("git diff --cached")
+
+    # Truncate diff if too long to avoid context window issues
+    if len(diff) > 10000:
+        diff = diff[:10000] + "\n... (diff truncated)"
+
+    if not diff.strip():
+        log_update(state, "No changes detected to commit.")
+        state["status"] = "COMPLETED"
+        return state
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", """You are a Commit Message Generator.
+Generate a Git commit message based on the provided diff.
+Follow these strict rules:
+1. Format: `type(scope): description`
+2. Allowed Types: `feat`, `fix`, `chore`, `docs`, `style`, `refactor`, `test`.
+3. The description must be lowercase and present tense ("add" not "added").
+4. Keep it concise.
+"""),
+        ("human", "Goal: {goal}\nDiff:\n{diff}\n\nGenerate the commit message.")
+    ])
+
+    chain = prompt | llm | StrOutputParser()
+    message = chain.invoke({"goal": state["goal"], "diff": diff}, config={"callbacks": callbacks})
+
+    # Clean up message (remove quotes if any)
+    message = message.strip().strip('"').strip("'")
+
+    log_update(state, f"Generated commit message: {message}")
+    state["commit_message"] = message
+
+    # Commit changes
+    result = commit_changes(sandbox, message)
+    log_update(state, f"Commit result: {result}")
+
+    if "Error" in result:
+        state["status"] = "FAILED"
+    else:
+        state["status"] = "COMPLETED"
 
     return state
 
@@ -184,9 +235,9 @@ def reviewer_node(state: AgentState) -> AgentState:
         output = result.get("output", "")
 
         if "APPROVED" in output:
-            state["status"] = "COMPLETED"
+            state["status"] = "COMMITTING"
             state["review_feedback"] = None
-            log_update(state, "Reviewer Approved.")
+            log_update(state, "Reviewer Approved. Proceeding to commit generation.")
             pass
         else:
             state["status"] = "CODING"
@@ -243,6 +294,8 @@ class WorkflowManager:
                 state = programmer_node(state)
             elif current_status == "REVIEWING":
                 state = reviewer_node(state)
+            elif current_status == "COMMITTING":
+                state = commit_msg_node(state)
             elif current_status == "WAITING_FOR_USER":
                 log_update(state, "Pausing workflow for user approval.")
                 # State persistence is handled by the worker upon return

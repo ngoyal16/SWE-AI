@@ -11,7 +11,8 @@ class TestWorkflow(unittest.TestCase):
     @patch("app.workflow.plan_critic_node")
     @patch("app.workflow.programmer_node")
     @patch("app.workflow.reviewer_node")
-    def test_manager_orchestration_with_init(self, mock_reviewer, mock_programmer, mock_critic, mock_planner, mock_get_sandbox, mock_init_workspace):
+    @patch("app.workflow.commit_msg_node")
+    def test_manager_orchestration_with_init(self, mock_commit_msg, mock_reviewer, mock_programmer, mock_critic, mock_planner, mock_get_sandbox, mock_init_workspace):
         # Setup transitions
         def planner_side_effect(state):
             state["status"] = "PLAN_CRITIC"
@@ -23,6 +24,9 @@ class TestWorkflow(unittest.TestCase):
             state["status"] = "REVIEWING"
             return state
         def reviewer_side_effect(state):
+            state["status"] = "COMMITTING"
+            return state
+        def commit_msg_side_effect(state):
             state["status"] = "COMPLETED"
             return state
 
@@ -30,6 +34,7 @@ class TestWorkflow(unittest.TestCase):
         mock_critic.side_effect = critic_side_effect
         mock_programmer.side_effect = programmer_side_effect
         mock_reviewer.side_effect = reviewer_side_effect
+        mock_commit_msg.side_effect = commit_msg_side_effect
 
         mock_sandbox = MagicMock()
         mock_get_sandbox.return_value = mock_sandbox
