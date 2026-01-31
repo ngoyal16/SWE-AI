@@ -77,8 +77,8 @@ def run_agent_session_sync(session_id: str, goal: str, repo_url: str = "", base_
         traceback.print_exc()
     finally:
         if sandbox:
-            log_message(session_id, "Tearing down sandbox...")
-            sandbox.teardown()
+            # log_message(session_id, "Tearing down sandbox...")
+            # sandbox.teardown()
             agent_manager.unregister_sandbox(session_id)
 
 def main():

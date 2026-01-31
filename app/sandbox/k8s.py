@@ -35,15 +35,26 @@ class K8sSandbox(Sandbox):
                 "labels": {"app": "swe-agent-worker", "task_id": self.task_id}
             },
             "spec": {
-                "containers": [{
-                    "name": "worker",
-                    "image": settings.WORKER_IMAGE,
-                    "command": ["/bin/sh", "-c", "sleep infinity"], # Keep alive
-                    "volumeMounts": [{
-                        "name": "workspace",
-                        "mountPath": self.workspace_root
-                    }]
-                }],
+                "containers": [
+                    {
+                        "name": "worker",
+                        "image": settings.WORKER_IMAGE,
+                        "command": ["/bin/sh", "-c", "sleep infinity"], # Keep alive
+                        "volumeMounts": [{
+                            "name": "workspace",
+                            "mountPath": self.workspace_root
+                        }]
+                    },
+                    {
+                        "name": "sandbox",
+                        "image": settings.SANDBOX_IMAGE,
+                        "command": ["sleep", "infinity"], # Keep alive
+                        "volumeMounts": [{
+                            "name": "workspace",
+                            "mountPath": self.workspace_root
+                        }]
+                    }
+                ],
                 "volumes": [{
                     "name": "workspace",
                     "emptyDir": {} # Ephemeral storage for the task
@@ -96,6 +107,7 @@ class K8sSandbox(Sandbox):
             resp = stream(self.v1.connect_get_namespaced_pod_exec,
                           self.pod_name,
                           self.namespace,
+                          container="sandbox",
                           command=['/bin/sh', '-c', full_command],
                           stderr=True, stdin=False,
                           stdout=True, tty=False)

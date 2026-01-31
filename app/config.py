@@ -34,6 +34,7 @@ class Config:
     SANDBOX_TYPE = os.getenv("SANDBOX_TYPE", "local")
     K8S_NAMESPACE = os.getenv("K8S_NAMESPACE", "default")
     WORKER_IMAGE = os.getenv("WORKER_IMAGE", "swe-agent-worker:latest")
+    SANDBOX_IMAGE = os.getenv("SANDBOX_IMAGE", "swe-agent-sandbox:latest")
     K8S_RUNTIME_CLASS = os.getenv("K8S_RUNTIME_CLASS", None) # For MicroVM support
 
     # Redis configuration
