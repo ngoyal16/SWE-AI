@@ -159,30 +159,59 @@ This mode provides strong isolation. The Agent itself runs as a Service, and it 
 
 Once running (port 8000), you can interact via the HTTP API.
 
-### 1. Start a New Task
+### 1. Start a New Session
 
-**Endpoint**: `POST /agent/tasks`
+**Endpoint**: `POST /agent/sessions`
+
+You can start a session in **Auto** (default) or **Review** mode.
+
+#### Auto Mode
+The agent plans and executes the entire task autonomously.
 
 ```bash
-curl -X POST http://localhost:8000/agent/tasks \
+curl -X POST http://localhost:8000/agent/sessions \
   -H "Content-Type: application/json" \
   -d '{
     "goal": "Refactor the login function in auth.py to use async/await",
-    "repo_url": "https://github.com/example/my-repo.git"
+    "repo_url": "https://github.com/example/my-repo.git",
+    "mode": "auto"
+  }'
+```
+
+#### Review Mode
+The agent creates a plan and then pauses execution (Status: `WAITING_FOR_USER`). You can review the plan in the logs and then approve it to continue.
+
+```bash
+curl -X POST http://localhost:8000/agent/sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "goal": "Critical security fix",
+    "repo_url": "https://github.com/example/my-repo.git",
+    "mode": "review"
   }'
 ```
 
 **Response**:
 ```json
-{"task_id": "550e8400-e29b-41d4-a716-446655440000"}
+{"session_id": "550e8400-e29b-41d4-a716-446655440000"}
 ```
 
-### 2. Check Task Status
+### 2. Approve a Session (Review Mode)
 
-**Endpoint**: `GET /agent/tasks/{task_id}`
+If a session is in `WAITING_FOR_USER` status, use this endpoint to approve the plan and resume execution.
+
+**Endpoint**: `POST /agent/sessions/{session_id}/approve`
 
 ```bash
-curl http://localhost:8000/agent/tasks/550e8400-e29b-41d4-a716-446655440000
+curl -X POST http://localhost:8000/agent/sessions/550e8400-e29b-41d4-a716-446655440000/approve
+```
+
+### 3. Check Session Status
+
+**Endpoint**: `GET /agent/sessions/{session_id}`
+
+```bash
+curl http://localhost:8000/agent/sessions/550e8400-e29b-41d4-a716-446655440000
 ```
 
 **Response**:

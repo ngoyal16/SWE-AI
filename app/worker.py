@@ -65,6 +65,7 @@ def run_agent_session_sync(session_id: str, goal: str, repo_url: str = "", base_
             storage.set_result(session_id, "Workflow completed successfully.")
         elif final_state["status"] == "WAITING_FOR_USER":
             storage.set_session_status(session_id, "WAITING_FOR_USER")
+            storage.save_state(session_id, final_state)
         else:
             storage.set_session_status(session_id, "FAILED")
             storage.set_result(session_id, "Workflow failed or timed out.")

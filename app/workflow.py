@@ -245,7 +245,7 @@ class WorkflowManager:
                 state = reviewer_node(state)
             elif current_status == "WAITING_FOR_USER":
                 log_update(state, "Pausing workflow for user approval.")
-                storage.save_state(state["session_id"], state)
+                # State persistence is handled by the worker upon return
                 return state
 
         if steps >= max_steps:

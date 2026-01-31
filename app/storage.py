@@ -35,6 +35,8 @@ class FileStorage(BaseStorage):
             try:
                 with open(self.sessions_file, "r") as f:
                     self.data = json.load(f)
+                    if "states" not in self.data:
+                        self.data["states"] = {}
             except json.JSONDecodeError:
                 self.data = {"sessions": {}, "logs": {}, "results": {}, "states": {}}
         else:
