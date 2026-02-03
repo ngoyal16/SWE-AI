@@ -13,7 +13,7 @@ import (
 )
 
 // setupTestDB initializes an in-memory SQLite database for testing
-func setupTestDB(t *testing.T) {
+func setupTestDB(t testing.TB) {
 	// Use in-memory SQLite
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
@@ -23,6 +23,13 @@ func setupTestDB(t *testing.T) {
 	}
 
 	model.DB = db
+
+	// Ensure single connection for in-memory SQLite to avoid "no such table" errors in concurrent tests
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("Failed to get sql.DB: %v", err)
+	}
+	sqlDB.SetMaxOpenConns(1)
 
 	// AutoMigrate all models
 	err = model.DB.AutoMigrate(
@@ -217,5 +224,52 @@ func TestSyncReposToDB_Isolation(t *testing.T) {
 	var checkB model.RepositoryAccess
 	if err := model.DB.First(&checkB, accessB.ID).Error; err != nil {
 		t.Errorf("AccessB should still exist: %v", err)
+	}
+}
+
+func BenchmarkSyncAllRepositories(b *testing.B) {
+	// Save original function and restore after benchmark
+	originalFetch := fetchRepositoriesFunc
+	defer func() { fetchRepositoriesFunc = originalFetch }()
+
+	// Mock fetchRepositories to simulate latency
+	fetchRepositoriesFunc = func(ctx context.Context, provider *model.GitProvider, token string) ([]remoteRepo, error) {
+		time.Sleep(50 * time.Millisecond) // Simulate network latency
+		return []remoteRepo{
+			{
+				Name:       "bench-repo",
+				FullName:   "bench/repo",
+				ExternalID: "bench-1",
+				Permission: "read",
+			},
+		}, nil
+	}
+
+	setupTestDB(b)
+
+	// Create 50 identities to process
+	provider := model.GitProvider{Name: "github", Driver: "github", Enabled: true}
+	model.DB.Create(&provider)
+
+	for i := 0; i < 50; i++ {
+		user := model.User{Username: "user" + string(rune(i))}
+		model.DB.Create(&user)
+		identity := model.UserIdentity{
+			UserID:     user.ID,
+			Provider:   "github",
+			ProviderID: "gh_" + string(rune(i)),
+			User:       user,
+			Token:      "token",
+		}
+		model.DB.Create(&identity)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// We use a fresh context for each run
+		err := SyncAllRepositories(context.Background())
+		if err != nil {
+			b.Fatalf("SyncAllRepositories failed: %v", err)
+		}
 	}
 }
