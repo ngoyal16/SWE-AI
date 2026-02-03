@@ -8,12 +8,40 @@ def initializer_node(state: AgentState) -> AgentState:
     try:
         # Generate Codebase Tree for context
         if hasattr(sandbox, "generate_codebase_tree"):
-            tree = sandbox.generate_codebase_tree(depth=3)
+            # Check for monorepo or large structure
+            root_list = sandbox.run_command("ls -F")
+
+            is_monorepo = False
+            monorepo_indicators = ["apps/", "packages/", "services/", "modules/"]
+            if any(indicator in root_list for indicator in monorepo_indicators):
+                is_monorepo = True
+
+            # Adaptive depth
+            if is_monorepo:
+                # Shallower depth for monorepos to avoid context explosion
+                tree = sandbox.generate_codebase_tree(depth=2)
+                tree += "\n\n[Note]: This appears to be a Monorepo. The tree is truncated to depth 2. Use `list_files` to explore subdirectories."
+                log_update(state, "Detected Monorepo structure. Generated truncated codebase tree.")
+            else:
+                tree = sandbox.generate_codebase_tree(depth=3)
+                log_update(state, "Generated codebase tree for context.")
+
             state["codebase_tree"] = tree
-            log_update(state, "Generated codebase tree for context.")
         else:
-            # Fallback to simple ls -R if not using DaytonaSandbox with tree support
-            state["codebase_tree"] = sandbox.run_command("ls -R")
+            # Fallback to simple ls -F for non-Daytona sandboxes to avoid massive output
+            state["codebase_tree"] = sandbox.run_command("ls -F")
+
+        # Check for AGENTS.md
+        try:
+            agents_md = sandbox.read_file("AGENTS.md")
+            if agents_md and "Error:" not in agents_md:
+                state["agents_md_content"] = agents_md
+                log_update(state, "Found AGENTS.md instructions.")
+            else:
+                state["agents_md_content"] = None
+        except Exception:
+            # Ignore errors reading AGENTS.md (e.g. doesn't exist)
+            state["agents_md_content"] = None
 
         state["status"] = "PLANNING"
     except Exception as e:

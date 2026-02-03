@@ -15,7 +15,7 @@ class AgentState(TypedDict):
     current_step: int
     review_feedback: Optional[str]
     plan_critic_feedback: Optional[str]
-    status: str # "PLANNING", "PLAN_CRITIC", "CODING", "REVIEWING", "COMMITTING", "COMPLETED", "FAILED", "WAITING_FOR_USER"
+    status: str # "PLANNING", "ENV_SETUP", "PLAN_CRITIC", "CODING", "TESTING", "REVIEWING", "COMMITTING", "COMPLETED", "FAILED", "WAITING_FOR_USER"
     logs: List[str]
     mode: str # "auto", "review"
     commit_message: Optional[str]
@@ -27,6 +27,7 @@ class AgentState(TypedDict):
     git_co_author_email: str
     review_count: int
     pr_url: Optional[str]
+    agents_md_content: Optional[str]
 
 def log_update(state: AgentState, message: str):
     state["logs"].append(message)

@@ -5,10 +5,12 @@ from .state import AgentState, log_update
 
 # Import nodes
 from .nodes.initializer import initializer_node
+from .nodes.env_setup import env_setup_node
 from .nodes.planner import planner_node
 from .nodes.critic import plan_critic_node
 from .nodes.branch import branch_naming_node
 from .nodes.programmer import programmer_node
+from .nodes.tester import tester_node
 from .nodes.reviewer import reviewer_node
 from .nodes.commit_msg import commit_msg_node
 from .nodes.pr_creator import pr_creation_node
@@ -26,10 +28,12 @@ class WorkflowManager:
 
         workflow.add_node("router", router_node)
         workflow.add_node("initializer", initializer_node)
+        workflow.add_node("env_setup", env_setup_node)
         workflow.add_node("planner", planner_node)
         workflow.add_node("plan_critic", plan_critic_node)
         workflow.add_node("branch_naming", branch_naming_node)
         workflow.add_node("programmer", programmer_node)
+        workflow.add_node("tester", tester_node)
         workflow.add_node("reviewer", reviewer_node)
         workflow.add_node("commit_msg", commit_msg_node)
         workflow.add_node("pr_creator", pr_creation_node)
@@ -41,10 +45,12 @@ class WorkflowManager:
             lambda state: "INITIALIZING" if state.get("status") == "PLANNING" and not state.get("codebase_tree") else state.get("status", "PLANNING"),
             {
                 "INITIALIZING": "initializer",
+                "ENV_SETUP": "env_setup",
                 "PLANNING": "planner",
                 "PLAN_CRITIC": "plan_critic",
                 "BRANCH_NAMING": "branch_naming",
                 "CODING": "programmer",
+                "TESTING": "tester",
                 "REVIEWING": "reviewer",
                 "COMMITTING": "commit_msg",
                 "PR_CREATION": "pr_creator",
@@ -54,7 +60,8 @@ class WorkflowManager:
             }
         )
 
-        workflow.add_edge("initializer", "planner")
+        workflow.add_edge("initializer", "env_setup")
+        workflow.add_edge("env_setup", "planner")
         workflow.add_edge("planner", "plan_critic")
 
         workflow.add_conditional_edges(
@@ -82,7 +89,17 @@ class WorkflowManager:
             "programmer",
             lambda state: state["status"],
             {
+                "TESTING": "tester",
+                "FAILED": END
+            }
+        )
+
+        workflow.add_conditional_edges(
+            "tester",
+            lambda state: state["status"],
+            {
                 "REVIEWING": "reviewer",
+                "CODING": "programmer",
                 "FAILED": END
             }
         )

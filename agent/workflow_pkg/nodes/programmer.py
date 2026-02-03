@@ -52,7 +52,7 @@ def programmer_node(state: AgentState) -> AgentState:
         result = agent_executor.invoke({"goal": state["goal"], "context": context_str}, config={"callbacks": callbacks})
         output = result.get("output", "")
         log_update(state, f"Programmer output: {output}")
-        state["status"] = "REVIEWING"
+        state["status"] = "TESTING"
     except Exception as e:
         log_update(state, f"Programmer error: {str(e)}")
         state["status"] = "FAILED"
