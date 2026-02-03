@@ -85,7 +85,7 @@ export default function NewSessionPage() {
                         }}
                     />
 
-                    <div className="flex items-center justify-between mt-6 pt-2">
+                    <div className="relative z-20 flex items-center justify-between mt-6 pt-2">
                         <div className="flex items-center gap-2">
                             <div className="flex items-center h-8 rounded-full bg-background/50 border border-border/50 px-3 gap-2 hover:bg-background transition-colors">
                                 <GitBranch className="h-3.5 w-3.5 text-muted-foreground" />
@@ -101,6 +101,7 @@ export default function NewSessionPage() {
 
                         <div className="flex items-center gap-2">
                             <Button
+                                type="button"
                                 variant="ghost"
                                 size="sm"
                                 className={cn(
