@@ -66,7 +66,7 @@ export default function Layout() {
                             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
                                 <Command className="h-6 w-6" />
                             </div>
-                            <span className="text-xl font-semibold tracking-tight text-sidebar-foreground">SWE Agent</span>
+                            <span className="text-xl font-semibold tracking-tight text-sidebar-foreground">SWE AI Agent</span>
                         </Link>
                     </div>
 
@@ -152,7 +152,7 @@ export default function Layout() {
                                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
                                         <Command className="h-6 w-6" />
                                     </div>
-                                    <span className="text-xl font-semibold tracking-tight">SWE Agent</span>
+                                    <span className="text-xl font-semibold tracking-tight">SWE AI Agent</span>
                                 </Link>
                             </div>
 

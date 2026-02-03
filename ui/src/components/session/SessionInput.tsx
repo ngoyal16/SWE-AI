@@ -70,7 +70,7 @@ export function SessionInput({ status, isSubmitting, onApprove, onSend }: Sessio
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder={needsApproval ? "Provide feedback to guide the agent..." : "Ask SWE Agent anything..."}
+                        placeholder={needsApproval ? "Provide feedback to guide the agent..." : "Ask SWE AI Agent anything..."}
                         className="min-h-[56px] max-h-[200px] w-full resize-none border-0 bg-transparent px-4 py-4 text-base placeholder:text-muted-foreground/60 focus-visible:ring-0 focus-visible:ring-offset-0"
                         rows={1}
                     />
@@ -103,7 +103,7 @@ export function SessionInput({ status, isSubmitting, onApprove, onSend }: Sessio
             </div>
 
             <div className="text-[11px] text-muted-foreground text-center font-medium">
-                SWE Agent can make mistakes. Please review code before executing. • Status: <span className={`font-mono ${status === 'CODING' ? 'text-primary animate-pulse' : ''}`}>{status}</span>
+                SWE AI Agent can make mistakes. Please review code before executing. • Status: <span className={`font-mono ${status === 'CODING' ? 'text-primary animate-pulse' : ''}`}>{status}</span>
             </div>
         </div>
     )

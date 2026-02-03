@@ -74,7 +74,7 @@ export default function NewSessionPage() {
             <div className="w-full max-w-3xl bg-surface-container border border-border/50 rounded-3xl p-4 md:p-6 shadow-xl shadow-black/5 backdrop-blur-sm relative overflow-hidden group transition-all duration-300">
                 <div className="relative z-10">
                     <Textarea
-                        placeholder="Ask SWE Agent to work on a session..."
+                        placeholder="Ask SWE AI Agent to work on a session..."
                         className="w-full bg-transparent border-none resize-none text-lg md:text-xl placeholder:text-muted-foreground/60 text-foreground focus-visible:ring-0 min-h-[120px] p-0 leading-relaxed font-light"
                         value={goal}
                         onChange={(e) => setGoal(e.target.value)}

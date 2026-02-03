@@ -48,7 +48,7 @@ export function SessionThread({ logs, isLoading }: SessionThreadProps) {
 
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
-                                            <span className="font-semibold text-sm">SWE Agent</span>
+                                            <span className="font-semibold text-sm">SWE AI Agent</span>
                                             <span className="text-[10px] text-muted-foreground uppercase tracking-widest opacity-0 group-hover/message:opacity-100 transition-opacity">
                                                 {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                             </span>
@@ -75,7 +75,7 @@ export function SessionThread({ logs, isLoading }: SessionThreadProps) {
                                 <div className="text-center space-y-2">
                                     <Bot className="h-16 w-16 mx-auto opacity-20" />
                                     <p className="text-lg font-medium">No activity yet</p>
-                                    <p className="text-sm">Start a task to see SWE Agent in action.</p>
+                                    <p className="text-sm">Start a task to see SWE AI Agent in action.</p>
                                 </div>
                             )}
                         </div>
