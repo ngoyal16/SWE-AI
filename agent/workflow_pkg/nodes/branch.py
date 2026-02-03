@@ -9,7 +9,7 @@ from ..utils import get_active_sandbox
 
 def branch_naming_node(state: AgentState) -> AgentState:
     print(f"[{state['session_id']}] BRANCH_NAMING: Generating branch name...")
-    llm = get_llm()
+    llm = get_llm(state["session_id"])
     callbacks = [SessionCallbackHandler(state["session_id"])]
 
     # Check if branch name already exists
