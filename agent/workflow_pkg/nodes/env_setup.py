@@ -25,9 +25,10 @@ def env_setup_node(state: AgentState) -> AgentState:
             "   - If you see a root `package.json` with workspaces, try `npm install` or `pnpm install` at root. "
             "   - If there is no root config but subprojects exist, install dependencies in the relevant subdirectories (e.g. `cd apps/frontend && npm install`). "
             "3. Based on the files found, run the appropriate installation command (e.g. 'npm install', 'pip install -r requirements.txt', 'go mod download'). "
-            "4. If multiple types are found, handle them. "
-            "5. If no dependencies are found or installation fails, just report it. "
-            "6. Respond with 'SETUP_COMPLETE' when done."
+            "4. MISSING TOOLS: If a required tool (e.g. `npm`, `pip`, `go`, `cargo`) is missing (command not found), attempt to install it using the system package manager (e.g. `sudo apt-get update && sudo apt-get install -y <tool>`). "
+            "5. If multiple types are found, handle them. "
+            "6. If no dependencies are found or installation fails, just report it. "
+            "7. Respond with 'SETUP_COMPLETE' when done."
         )
 
         prompt = ChatPromptTemplate.from_messages([
