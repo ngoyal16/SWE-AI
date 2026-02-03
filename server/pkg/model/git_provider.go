@@ -125,38 +125,11 @@ func splitScopes(scopes string) []string {
 		return nil
 	}
 	result := []string{}
-	for _, s := range splitString(scopes, ",") {
-		s = trimSpace(s)
+	for _, s := range strings.Split(scopes, ",") {
+		s = strings.TrimSpace(s)
 		if s != "" {
 			result = append(result, s)
 		}
 	}
 	return result
-}
-
-// Helper functions to avoid importing strings package in this file
-func splitString(s, sep string) []string {
-	var result []string
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if i+len(sep) <= len(s) && s[i:i+len(sep)] == sep {
-			result = append(result, s[start:i])
-			start = i + len(sep)
-			i += len(sep) - 1
-		}
-	}
-	result = append(result, s[start:])
-	return result
-}
-
-func trimSpace(s string) string {
-	start := 0
-	for start < len(s) && (s[start] == ' ' || s[start] == '\t') {
-		start++
-	}
-	end := len(s)
-	for end > start && (s[end-1] == ' ' || s[end-1] == '\t') {
-		end--
-	}
-	return s[start:end]
 }
