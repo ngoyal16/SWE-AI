@@ -10,14 +10,6 @@ class Config:
     # API Configuration (for agent-server communication)
     API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 
-    # LLM Defaults (System-wide fallbacks)
-    # These are only used if a session does not have specific AI credentials
-    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").lower()
-    LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4-turbo-preview")
-    LLM_BASE_URL = os.getenv("LLM_BASE_URL", "")
-    LLM_DEPLOYMENT = os.getenv("LLM_DEPLOYMENT", "")
-    LLM_API_KEY = os.getenv("LLM_API_KEY", "")
-
     # Daytona configuration
     DAYTONA_API_KEY = os.getenv("DAYTONA_API_KEY", "")
     DAYTONA_TARGET_IMAGE = os.getenv("DAYTONA_TARGET_IMAGE", "daytonaio/langchain-open-swe:0.1.0")
