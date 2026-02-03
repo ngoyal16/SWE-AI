@@ -15,7 +15,7 @@ class AgentState(TypedDict):
     current_step: int
     review_feedback: Optional[str]
     plan_critic_feedback: Optional[str]
-    status: str # "PLANNING", "PLAN_CRITIC", "CODING", "TESTING", "REVIEWING", "COMMITTING", "COMPLETED", "FAILED", "WAITING_FOR_USER"
+    status: str # "PLANNING", "ENV_SETUP", "PLAN_CRITIC", "CODING", "TESTING", "REVIEWING", "COMMITTING", "COMPLETED", "FAILED", "WAITING_FOR_USER"
     logs: List[str]
     mode: str # "auto", "review"
     commit_message: Optional[str]

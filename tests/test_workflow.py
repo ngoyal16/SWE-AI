@@ -7,6 +7,7 @@ from agent.workflow_pkg.state import AgentState
 class TestWorkflow(unittest.TestCase):
 
     @patch("agent.workflow_pkg.manager.initializer_node")
+    @patch("agent.workflow_pkg.manager.env_setup_node")
     @patch("agent.workflow_pkg.manager.planner_node")
     @patch("agent.workflow_pkg.manager.plan_critic_node")
     @patch("agent.workflow_pkg.manager.branch_naming_node")
@@ -14,12 +15,15 @@ class TestWorkflow(unittest.TestCase):
     @patch("agent.workflow_pkg.manager.tester_node")
     @patch("agent.workflow_pkg.manager.reviewer_node")
     @patch("agent.workflow_pkg.manager.commit_msg_node")
-    def test_manager_orchestration_with_init(self, mock_commit_msg, mock_reviewer, mock_tester, mock_programmer, mock_branch_naming, mock_critic, mock_planner, mock_init_node):
+    def test_manager_orchestration_with_init(self, mock_commit_msg, mock_reviewer, mock_tester, mock_programmer, mock_branch_naming, mock_critic, mock_planner, mock_env_setup, mock_init_node):
         # Setup transitions
         def init_side_effect(state):
-            state["status"] = "PLANNING"
+            state["status"] = "ENV_SETUP" # Changed transition
             state["codebase_tree"] = "tree"
             state["logs"].append("Workspace initialization result:\nInitialized")
+            return state
+        def env_setup_side_effect(state):
+            state["status"] = "PLANNING"
             return state
         def planner_side_effect(state):
             state["status"] = "PLAN_CRITIC"
@@ -50,6 +54,7 @@ class TestWorkflow(unittest.TestCase):
             return state
 
         mock_init_node.side_effect = init_side_effect
+        mock_env_setup.side_effect = env_setup_side_effect
         mock_planner.side_effect = planner_side_effect
         mock_critic.side_effect = critic_side_effect
         mock_branch_naming.side_effect = branch_naming_side_effect
@@ -83,6 +88,7 @@ class TestWorkflow(unittest.TestCase):
         self.assertIn("Workspace initialization result:\nInitialized", final_state["logs"])
 
     @patch("agent.workflow_pkg.manager.initializer_node")
+    @patch("agent.workflow_pkg.manager.env_setup_node")
     @patch("agent.workflow_pkg.manager.planner_node")
     @patch("agent.workflow_pkg.manager.plan_critic_node")
     @patch("agent.workflow_pkg.manager.branch_naming_node")
@@ -90,11 +96,14 @@ class TestWorkflow(unittest.TestCase):
     @patch("agent.workflow_pkg.manager.tester_node")
     @patch("agent.workflow_pkg.manager.reviewer_node")
     @patch("agent.workflow_pkg.manager.commit_msg_node")
-    def test_manager_review_mode_pause(self, mock_commit_msg, mock_reviewer, mock_tester, mock_programmer, mock_branch_naming, mock_critic, mock_planner, mock_init_node):
+    def test_manager_review_mode_pause(self, mock_commit_msg, mock_reviewer, mock_tester, mock_programmer, mock_branch_naming, mock_critic, mock_planner, mock_env_setup, mock_init_node):
          # Test that it pauses at WAITING_FOR_USER
         def init_side_effect(state):
-            state["status"] = "PLANNING"
+            state["status"] = "ENV_SETUP"
             state["codebase_tree"] = "tree"
+            return state
+        def env_setup_side_effect(state):
+            state["status"] = "PLANNING"
             return state
         def planner_side_effect(state):
             state["status"] = "PLAN_CRITIC"
@@ -106,6 +115,7 @@ class TestWorkflow(unittest.TestCase):
             return state
 
         mock_init_node.side_effect = init_side_effect
+        mock_env_setup.side_effect = env_setup_side_effect
         mock_planner.side_effect = planner_side_effect
         mock_critic.side_effect = critic_side_effect
 
@@ -131,6 +141,7 @@ class TestWorkflow(unittest.TestCase):
         self.assertEqual(final_state["next_status"], "BRANCH_NAMING")
 
     @patch("agent.workflow_pkg.manager.initializer_node")
+    @patch("agent.workflow_pkg.manager.env_setup_node")
     @patch("agent.workflow_pkg.manager.planner_node")
     @patch("agent.workflow_pkg.manager.plan_critic_node")
     @patch("agent.workflow_pkg.manager.branch_naming_node")
@@ -138,15 +149,18 @@ class TestWorkflow(unittest.TestCase):
     @patch("agent.workflow_pkg.manager.tester_node")
     @patch("agent.workflow_pkg.manager.reviewer_node")
     @patch("agent.workflow_pkg.manager.commit_msg_node")
-    def test_manager_orchestration_tester_fail(self, mock_commit_msg, mock_reviewer, mock_tester, mock_programmer, mock_branch_naming, mock_critic, mock_planner, mock_init_node):
+    def test_manager_orchestration_tester_fail(self, mock_commit_msg, mock_reviewer, mock_tester, mock_programmer, mock_branch_naming, mock_critic, mock_planner, mock_env_setup, mock_init_node):
         # Test the loop Programmer -> Tester -> Programmer
 
         # We need a counter to break the loop or simulate fix
         self.programmer_calls = 0
 
         def init_side_effect(state):
-            state["status"] = "PLANNING"
+            state["status"] = "ENV_SETUP"
             state["codebase_tree"] = "tree"
+            return state
+        def env_setup_side_effect(state):
+            state["status"] = "PLANNING"
             return state
         def planner_side_effect(state):
             state["status"] = "PLAN_CRITIC"
@@ -176,6 +190,7 @@ class TestWorkflow(unittest.TestCase):
             return state
 
         mock_init_node.side_effect = init_side_effect
+        mock_env_setup.side_effect = env_setup_side_effect
         mock_planner.side_effect = planner_side_effect
         mock_critic.side_effect = critic_side_effect
         mock_branch_naming.side_effect = branch_naming_side_effect
