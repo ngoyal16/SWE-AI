@@ -40,8 +40,10 @@ Generate a Git commit message based on the provided diff.
 Follow these strict rules:
 1. Format: `type(scope): description`
 2. Allowed Types: `feat`, `fix`, `chore`, `docs`, `style`, `refactor`, `test`.
-3. The description must be lowercase and present tense ("add" not "added").
-4. Keep it concise.
+3. The subject description must be lowercase and present tense ("add" not "added").
+4. The subject line must be concise (under 50 chars).
+5. You MUST include a detailed body describing the changes, separated from the subject line by a blank line.
+6. The body should explain *what* changed and *why*, using bullet points if necessary.
 """),
         ("human", "Goal: {goal}\nDiff:\n{diff}\n\nGenerate the commit message.")
     ])
