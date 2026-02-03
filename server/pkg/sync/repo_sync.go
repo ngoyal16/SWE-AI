@@ -52,6 +52,12 @@ func SyncIdentityRepositories(ctx context.Context, identity *model.UserIdentity)
 		return fmt.Errorf("failed to fetch repositories: %w", err)
 	}
 
+	return syncReposToDB(ctx, identity, &provider, repos)
+}
+
+func syncReposToDB(ctx context.Context, identity *model.UserIdentity, provider *model.GitProvider, repos []remoteRepo) error {
+	var activeAccessIDs []uint
+
 	for _, r := range repos {
 		// 1. Create or Update Repository
 		repo := model.Repository{
@@ -97,13 +103,29 @@ func SyncIdentityRepositories(ctx context.Context, identity *model.UserIdentity)
 		err = model.DB.Where("user_id = ? AND repository_id = ? AND identity_id = ?", identity.UserID, repo.ID, identity.ID).First(&existingAccess).Error
 		if err == nil {
 			access.ID = existingAccess.ID
-			model.DB.Save(&access)
+			if err := model.DB.Save(&access).Error; err != nil {
+				log.Error().Err(err).Str("repo", repo.FullName).Msg("Failed to update repository access")
+				continue
+			}
 		} else {
-			model.DB.Create(&access)
+			if err := model.DB.Create(&access).Error; err != nil {
+				log.Error().Err(err).Str("repo", repo.FullName).Msg("Failed to create repository access")
+				continue
+			}
 		}
+		activeAccessIDs = append(activeAccessIDs, access.ID)
 	}
 
-	// TODO: Clean up access records that were not synced in this run (meaning access was lost)
+	// Clean up access records that were not synced in this run (meaning access was lost)
+	query := model.DB.Where("identity_id = ?", identity.ID)
+	if len(activeAccessIDs) > 0 {
+		query = query.Where("id NOT IN ?", activeAccessIDs)
+	}
+
+	if err := query.Delete(&model.RepositoryAccess{}).Error; err != nil {
+		log.Error().Err(err).Uint("identity_id", identity.ID).Msg("Failed to clean up stale repository access records")
+		return fmt.Errorf("failed to cleanup stale access: %w", err)
+	}
 
 	return nil
 }
