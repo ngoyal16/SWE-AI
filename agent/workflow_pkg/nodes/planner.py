@@ -32,6 +32,10 @@ def planner_node(state: AgentState) -> AgentState:
     prompt = ChatPromptTemplate.from_messages([
         ("system", """You are a Senior Technical Planner. Your job is to create a detailed, step-by-step plan to accomplish the user's goal in a software repository. The plan should be clear and actionable for a programmer.
 
+### CONTEXT & EXPLORATION
+The codebase context provided below is a high-level overview. If the repository is large or a monorepo, the file tree might be truncated.
+If you need to verify file locations or explore subdirectories (e.g. `packages/`, `apps/`) to understand the structure better, explicitly include a step in your plan to "Explore [path] using list_files".
+
 ### GIT & NAMING CONVENTIONS
 You are a strict adherent to Conventional Commits and Git Flow. You must follow these rules for every git operation:
 

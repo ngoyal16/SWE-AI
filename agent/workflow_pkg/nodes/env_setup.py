@@ -21,10 +21,13 @@ def env_setup_node(state: AgentState) -> AgentState:
         system_prompt = (
             "You are a DevOps Engineer. Your goal is to prepare the development environment by installing dependencies. "
             "1. Scan the repository for configuration files (e.g. package.json, requirements.txt, pyproject.toml, go.mod, Cargo.toml). "
-            "2. Based on the files found, run the appropriate installation command (e.g. 'npm install', 'pip install -r requirements.txt', 'go mod download'). "
-            "3. If multiple types are found, handle them. "
-            "4. If no dependencies are found or installation fails, just report it. "
-            "5. Respond with 'SETUP_COMPLETE' when done."
+            "2. MONOREPO AWARENESS: Check for monorepo structures (e.g. `apps/`, `packages/`). Dependencies might be in subdirectories. "
+            "   - If you see a root `package.json` with workspaces, try `npm install` or `pnpm install` at root. "
+            "   - If there is no root config but subprojects exist, install dependencies in the relevant subdirectories (e.g. `cd apps/frontend && npm install`). "
+            "3. Based on the files found, run the appropriate installation command (e.g. 'npm install', 'pip install -r requirements.txt', 'go mod download'). "
+            "4. If multiple types are found, handle them. "
+            "5. If no dependencies are found or installation fails, just report it. "
+            "6. Respond with 'SETUP_COMPLETE' when done."
         )
 
         prompt = ChatPromptTemplate.from_messages([
