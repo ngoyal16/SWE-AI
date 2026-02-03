@@ -16,15 +16,7 @@ class Config:
     LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4-turbo-preview")
     LLM_BASE_URL = os.getenv("LLM_BASE_URL", "")
     LLM_DEPLOYMENT = os.getenv("LLM_DEPLOYMENT", "")
-
-    # Optional: System-wide keys (for testing or fallback)
-    # Ideally, these should be removed in production in favor of session-scoped credentials
-    API_KEY_OPENAI = os.getenv("OPENAI_API_KEY") or os.getenv("LLM_API_KEY")
-    API_KEY_GOOGLE = os.getenv("GOOGLE_API_KEY") or os.getenv("LLM_API_KEY")
-    API_KEY_AZURE = os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("LLM_API_KEY")
-
-    # Legacy Support
-    MODEL_NAME = os.getenv("MODEL_NAME", "ops-4.5")
+    LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 
     # Daytona configuration
     DAYTONA_API_KEY = os.getenv("DAYTONA_API_KEY", "")

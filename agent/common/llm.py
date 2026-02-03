@@ -9,11 +9,14 @@ def get_llm(session_id: Optional[str] = None):
     # Default Config
     provider = settings.LLM_PROVIDER
     model_name = settings.LLM_MODEL
-    api_key_google = settings.API_KEY_GOOGLE
-    api_key_azure = settings.API_KEY_AZURE
-    api_key_openai = settings.API_KEY_OPENAI
     base_url = settings.LLM_BASE_URL
     deployment = settings.LLM_DEPLOYMENT
+
+    # Use generic key for all defaults
+    api_key_default = settings.LLM_API_KEY
+    api_key_google = api_key_default
+    api_key_azure = api_key_default
+    api_key_openai = api_key_default
 
     # Session Override
     if session_id:
@@ -37,26 +40,15 @@ def get_llm(session_id: Optional[str] = None):
                 if ai_config.base_url:
                     base_url = ai_config.base_url
 
-    # Backward compatibility logic for specific model names if provider is default/generic
-    # Only apply if using defaults (no session override or session uses default provider/model which matches settings)
-    model_name_legacy = settings.MODEL_NAME.lower()
-    if provider == "openai" and "gemini" in model_name_legacy and not session_id:
-        provider = "google"
-
     if provider == "google":
         if not api_key_google:
              # If using session config, ensure key is present
              if session_id:
                  raise ValueError(f"Google API Key is missing for session {session_id}.")
-             raise ValueError("GOOGLE_API_KEY is not set for Google provider.")
-
-        # Handle model name mapping for legacy
-        final_model = model_name
-        if final_model == "gpt-4-turbo-preview" and not session_id:
-             final_model = "gemini-1.5-pro"
+             raise ValueError("LLM_API_KEY is not set for Google provider.")
 
         return ChatGoogleGenerativeAI(
-            model=final_model,
+            model=model_name,
             google_api_key=api_key_google,
             temperature=0
         )
@@ -64,7 +56,7 @@ def get_llm(session_id: Optional[str] = None):
         if not api_key_azure:
             if session_id:
                  raise ValueError(f"Azure API Key is missing for session {session_id}.")
-            raise ValueError("AZURE_OPENAI_API_KEY is not set for Azure provider.")
+            raise ValueError("LLM_API_KEY is not set for Azure provider.")
         return AzureChatOpenAI(
             deployment_name=deployment,
             openai_api_version="2023-05-15",
