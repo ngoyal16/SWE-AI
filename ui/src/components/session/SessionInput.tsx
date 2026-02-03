@@ -56,7 +56,7 @@ export function SessionInput({ status, isSubmitting, onApprove, onSend }: Sessio
                         className="bg-amber-500 hover:bg-amber-600 text-white border-none shadow-md rounded-full px-6 font-semibold"
                     >
                         <Play className="h-4 w-4 mr-2 fill-current" />
-                        Approve
+                        Approve Plan
                     </Button>
                 </div>
             )}
