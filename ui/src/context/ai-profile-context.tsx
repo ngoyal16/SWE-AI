@@ -33,21 +33,29 @@ export function AIProfileProvider({ children }: { children: ReactNode }) {
             queryClient.invalidateQueries({ queryKey: ['user-ai-preference'] });
             toast.success('AI profile updated');
         },
-        onError: (error: any) => {
+        onError: (error: Error) => {
             toast.error(error.message || 'Failed to update AI profile');
         }
     });
 
     useEffect(() => {
+        let targetId = '';
         if (preference?.ai_profile_id) {
-            setSelectedProfileIdState(preference.ai_profile_id.toString());
-        } else if (profiles.length > 0 && !selectedProfileId) {
+            targetId = preference.ai_profile_id.toString();
+        } else if (profiles.length > 0) {
             const defaultProfile = profiles.find(p => p.is_default) || profiles[0];
             if (defaultProfile) {
-                setSelectedProfileIdState(defaultProfile.id.toString());
+                targetId = defaultProfile.id.toString();
             }
         }
-    }, [preference, profiles]);
+
+        // Only update if we have a target and it's different, and we haven't manually set one yet (or we want to sync)
+        // Here we assume if selectedProfileId is empty, we should fill it.
+        // If preference changes, we might want to update it too.
+        if (targetId && targetId !== selectedProfileId) {
+             setSelectedProfileIdState(targetId);
+        }
+    }, [preference, profiles, selectedProfileId]);
 
     const setSelectedProfileId = (id: string) => {
         setSelectedProfileIdState(id);

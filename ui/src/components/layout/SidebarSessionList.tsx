@@ -1,8 +1,8 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { agentApi } from "@/api/agent";
+import { agentApi, type SessionStatus } from "@/api/agent";
 import { cn } from "@/lib/utils";
-import { Loader2, MessageSquare, Plus, Archive } from "lucide-react";
+import { Loader2, MessageSquare, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from "date-fns";
@@ -21,17 +21,6 @@ export function SidebarSessionList() {
 
     return (
         <div className="flex flex-col h-full gap-2">
-            <div className="px-3 py-2">
-                <Button
-                    variant="outline"
-                    className="w-full justify-start gap-2 bg-background/50 border-dashed hover:bg-background hover:border-solid hover:border-primary/50 transition-all font-normal text-muted-foreground hover:text-foreground"
-                    onClick={() => navigate('/')}
-                >
-                    <Plus className="h-4 w-4" />
-                    New Session
-                </Button>
-            </div>
-
             <div className="px-4 pb-1 pt-2">
                 <h3 className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">Recent Sessions</h3>
             </div>
@@ -100,7 +89,7 @@ export function SidebarSessionList() {
     );
 }
 
-function sessionStateToText(session: any) {
+function sessionStateToText(session: SessionStatus) {
     if (session.status === 'WAITING_FOR_USER') return 'Waiting for you';
     if (session.status === 'COMPLETED') return 'Completed';
     if (session.status === 'FAILED') return 'Failed';

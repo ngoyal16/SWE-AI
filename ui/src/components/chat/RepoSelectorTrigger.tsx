@@ -90,7 +90,7 @@ export function RepoSelectorTrigger({ value, onValueChange }: RepoSelectorTrigge
                         variant="outline"
                         role="combobox"
                         aria-expanded={open}
-                        className="w-[280px] justify-between bg-black border-black text-white hover:bg-zinc-800 rounded-lg h-9"
+                        className="w-[280px] justify-between bg-surface-container border-border/50 text-foreground hover:bg-surface-container-high hover:text-foreground rounded-xl h-10 shadow-sm transition-all"
                     >
                         {selectedRepo ? (
                             <span className="truncate flex items-center gap-2">
@@ -98,12 +98,12 @@ export function RepoSelectorTrigger({ value, onValueChange }: RepoSelectorTrigge
                                 {selectedRepo.full_name}
                             </span>
                         ) : (
-                            <span className="text-zinc-400">Select repository...</span>
+                            <span className="text-muted-foreground">Select repository...</span>
                         )}
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0 bg-popover border-border text-popover-foreground" align="start">
+                <PopoverContent className="w-[300px] p-0 bg-surface-container border-border/50 text-foreground shadow-xl rounded-xl" align="start">
                     <Command className="bg-transparent" shouldFilter={false}>
                         <CommandInput
                             placeholder="Search repo..."
@@ -112,28 +112,28 @@ export function RepoSelectorTrigger({ value, onValueChange }: RepoSelectorTrigge
                             className="h-9 border-none focus:ring-0"
                         />
                         <CommandList>
-                            <CommandEmpty className="py-2 text-center text-xs text-muted-foreground">
+                            <CommandEmpty className="py-4 text-center text-xs text-muted-foreground">
                                 {isFetching && !isFetchingNextPage ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "No repo found."}
                             </CommandEmpty>
-                            <CommandGroup heading="Repositories" className="text-muted-foreground">
+                            <CommandGroup heading="Repositories" className="text-muted-foreground px-1 py-1">
                                 {repos.map((repo) => (
                                     <CommandItem
                                         key={repo.id}
                                         value={repo.id.toString()}
                                         onSelect={() => handleSelect(repo.id.toString())}
-                                        className="text-foreground aria-selected:bg-accent aria-selected:text-accent-foreground cursor-pointer"
+                                        className="text-foreground aria-selected:bg-surface-container-highest aria-selected:text-foreground cursor-pointer rounded-lg my-0.5"
                                     >
                                         <Check
                                             className={cn(
-                                                "mr-2 h-4 w-4",
+                                                "mr-2 h-4 w-4 text-primary",
                                                 value === repo.id.toString() ? "opacity-100" : "opacity-0"
                                             )}
                                         />
                                         <div className="flex flex-col truncate flex-1">
                                             <div className="flex items-center gap-2">
-                                                <span className="truncate text-sm">{repo.full_name}</span>
+                                                <span className="truncate text-sm font-medium">{repo.full_name}</span>
                                                 {repo.provider && (
-                                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                                                    <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-background/50 text-muted-foreground shrink-0 border border-border/30">
                                                         {repo.provider.display_name}
                                                     </span>
                                                 )}
@@ -143,11 +143,11 @@ export function RepoSelectorTrigger({ value, onValueChange }: RepoSelectorTrigge
                                 ))}
                             </CommandGroup>
                             {hasNextPage && (
-                                <div className="p-1 border-t border-border">
+                                <div className="p-1 border-t border-border/50">
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="w-full text-xs h-7 text-muted-foreground"
+                                        className="w-full text-xs h-7 text-muted-foreground hover:bg-surface-container-highest rounded-lg"
                                         onClick={(e) => {
                                             e.preventDefault();
                                             fetchNextPage();
@@ -163,9 +163,9 @@ export function RepoSelectorTrigger({ value, onValueChange }: RepoSelectorTrigge
                 </PopoverContent>
             </Popover>
 
-            <Button variant="ghost" size="sm" className="h-9 gap-1 text-zinc-500 hover:text-zinc-900">
+            <Button variant="ghost" size="sm" className="h-10 gap-2 text-muted-foreground hover:text-foreground hover:bg-surface-container rounded-xl">
                 <Settings2 className="h-4 w-4" />
-                <span className="text-xs font-medium">Configure repo</span>
+                <span className="text-xs font-medium">Configure</span>
             </Button>
         </div>
     );

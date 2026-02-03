@@ -37,14 +37,13 @@ class ApiClient {
             headers['Content-Type'] = 'application/json';
         }
 
+        const { params, ...fetchOptions } = options;
+
         const defaultOptions: RequestInit = {
             credentials: 'include',
             headers,
-            ...options,
+            ...fetchOptions,
         };
-
-        // Remove params from options before passing to fetch
-        delete (defaultOptions as any).params;
 
         try {
             const response = await fetch(fullUrl, defaultOptions);
