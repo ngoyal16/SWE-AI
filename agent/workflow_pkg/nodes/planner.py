@@ -29,9 +29,14 @@ def planner_node(state: AgentState) -> AgentState:
     if state.get("plan"):
         context_str += f"\n\nExisting Plan:\n{state['plan']}\n\nINSTRUCTION: The goal has been updated or feedback received. Refine the Existing Plan to accommodate the new requirements. Do not lose progress if possible, but modify steps as needed."
 
+    agents_md = state.get("agents_md_content")
+    agents_md_context = ""
+    if agents_md:
+        agents_md_context = f"\n\n### REPOSITORY SPECIFIC INSTRUCTIONS (AGENTS.MD)\nYou MUST obey the following instructions found in AGENTS.md:\n{agents_md}\n"
+
     prompt = ChatPromptTemplate.from_messages([
         ("system", """You are a Senior Technical Planner. Your job is to create a detailed, step-by-step plan to accomplish the user's goal in a software repository. The plan should be clear and actionable for a programmer.
-
+{agents_md_context}
 ### CONTEXT & EXPLORATION
 The codebase context provided below is a high-level overview. If the repository is large or a monorepo, the file tree might be truncated.
 If you need to verify file locations or explore subdirectories (e.g. `packages/`, `apps/`) to understand the structure better, explicitly include a step in your plan to "Explore [path] using list_files".
@@ -58,7 +63,8 @@ IMPORTANT:
         "base_branch": state.get("base_branch") or "Default",
         "session_id": state["session_id"],
         "files": files,
-        "context": context_str
+        "context": context_str,
+        "agents_md_context": agents_md_context
     }, config={"callbacks": callbacks})
 
     state["plan"] = plan

@@ -31,6 +31,18 @@ def initializer_node(state: AgentState) -> AgentState:
             # Fallback to simple ls -F for non-Daytona sandboxes to avoid massive output
             state["codebase_tree"] = sandbox.run_command("ls -F")
 
+        # Check for AGENTS.md
+        try:
+            agents_md = sandbox.read_file("AGENTS.md")
+            if agents_md and "Error:" not in agents_md:
+                state["agents_md_content"] = agents_md
+                log_update(state, "Found AGENTS.md instructions.")
+            else:
+                state["agents_md_content"] = None
+        except Exception:
+            # Ignore errors reading AGENTS.md (e.g. doesn't exist)
+            state["agents_md_content"] = None
+
         state["status"] = "PLANNING"
     except Exception as e:
         log_update(state, f"Initialization failed: {str(e)}")

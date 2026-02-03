@@ -20,6 +20,7 @@ def env_setup_node(state: AgentState) -> AgentState:
 
         system_prompt = (
             "You are a DevOps Engineer. Your goal is to prepare the development environment by installing dependencies. "
+            "0. AGENTS.MD INSTRUCTIONS: If 'agents_md_content' is provided below, you MUST prioritize those instructions for environment setup."
             "1. Scan the repository for configuration files (e.g. package.json, requirements.txt, pyproject.toml, go.mod, Cargo.toml). "
             "2. MONOREPO AWARENESS: Check for monorepo structures (e.g. `apps/`, `packages/`). Dependencies might be in subdirectories. "
             "   - If you see a root `package.json` with workspaces, try `npm install` or `pnpm install` at root. "
@@ -33,7 +34,7 @@ def env_setup_node(state: AgentState) -> AgentState:
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
-            ("human", "Repo Context: {codebase_tree}\n\nPlease install dependencies."),
+            ("human", "Repo Context: {codebase_tree}\n\nAGENTS.MD Instructions: {agents_md_content}\n\nPlease install dependencies."),
             ("placeholder", "{agent_scratchpad}"),
         ])
 
@@ -42,7 +43,8 @@ def env_setup_node(state: AgentState) -> AgentState:
 
         # We pass codebase_tree to give it a hint of the file structure immediately
         context = state.get("codebase_tree", "")
-        result = agent_executor.invoke({"codebase_tree": context}, config={"callbacks": callbacks})
+        agents_md = state.get("agents_md_content", "None")
+        result = agent_executor.invoke({"codebase_tree": context, "agents_md_content": agents_md}, config={"callbacks": callbacks})
         output = result.get("output", "")
 
         log_update(state, f"Env Setup Output: {output}")
