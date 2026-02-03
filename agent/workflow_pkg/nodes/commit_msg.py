@@ -9,7 +9,7 @@ from ..utils import get_active_sandbox
 
 def commit_msg_node(state: AgentState) -> AgentState:
     print(f"[{state['session_id']}] COMMIT_MSG: Generating commit message...")
-    llm = get_llm()
+    llm = get_llm(state["session_id"])
     callbacks = [SessionCallbackHandler(state["session_id"])]
 
     sandbox = get_active_sandbox(state["session_id"])

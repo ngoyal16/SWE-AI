@@ -9,7 +9,7 @@ from ..utils import get_active_sandbox
 
 def reviewer_node(state: AgentState) -> AgentState:
     print(f"[{state['session_id']}] REVIEWER: Reviewing changes...")
-    llm = get_llm()
+    llm = get_llm(state["session_id"])
     callbacks = [SessionCallbackHandler(state["session_id"])]
 
     try:

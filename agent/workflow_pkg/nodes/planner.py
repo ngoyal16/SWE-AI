@@ -8,7 +8,7 @@ from ..utils import get_active_sandbox
 
 def planner_node(state: AgentState) -> AgentState:
     print(f"[{state['session_id']}] PLANNER: Generating plan...")
-    llm = get_llm()
+    llm = get_llm(state["session_id"])
     callbacks = [SessionCallbackHandler(state["session_id"])]
 
     sandbox = get_active_sandbox(state["session_id"])

@@ -27,11 +27,11 @@ An end-to-end asynchronous coding agent inspired by Open SWE, capable of using a
 
 ## Quick Start (Docker Compose)
 
-1.  **Configure**: Create a `.env` file with your keys (see User Guide for details).
+1.  **Configure**: Create a `.env` file for your infrastructure keys.
     ```bash
-    OPENAI_API_KEY=sk-...
-    LLM_PROVIDER=openai
     DAYTONA_API_KEY=...
+    # (Optional) Git Host Tokens for private repos
+    GIT_HOST_TOKENS='{"github.com": "..."}'
     ```
 
 2.  **Run**:
@@ -40,8 +40,11 @@ An end-to-end asynchronous coding agent inspired by Open SWE, capable of using a
     docker-compose up --build
     ```
 
-3.  **Interact**:
-    Submit a session to the API (exposed on port 8000).
+3.  **Setup AI**:
+    Open the UI (default: http://localhost:8000), go to **Settings > AI Profiles**, and configure your LLM providers (OpenAI, Gemini, etc.).
+
+4.  **Interact**:
+    Submit a session to the API.
     ```bash
     curl -X POST http://localhost:8000/agent/sessions \
       -H "Content-Type: application/json" \

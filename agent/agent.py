@@ -9,6 +9,9 @@ from .sandbox.daytona import DaytonaSandbox
 # Registry for active sandboxes (Used by Worker process only)
 ACTIVE_SANDBOXES: Dict[str, Sandbox] = {}
 
+# Registry for active AI configurations (Used by Worker process only)
+ACTIVE_AI_CONFIGS: Dict[str, Any] = {}
+
 class AgentManager:
     """Singleton to manage task submission (API side) and execution (Worker side)"""
     _instance = None
@@ -122,3 +125,16 @@ class AgentManager:
         """Worker Side: Cleanup"""
         if session_id in ACTIVE_SANDBOXES:
             del ACTIVE_SANDBOXES[session_id]
+
+    def get_ai_config(self, session_id: str) -> Optional[Any]:
+        """Worker Side: Retrieve active AI config"""
+        return ACTIVE_AI_CONFIGS.get(session_id)
+
+    def register_ai_config(self, session_id: str, config: Any):
+        """Worker Side: Register AI config"""
+        ACTIVE_AI_CONFIGS[session_id] = config
+
+    def unregister_ai_config(self, session_id: str):
+        """Worker Side: Cleanup AI config"""
+        if session_id in ACTIVE_AI_CONFIGS:
+            del ACTIVE_AI_CONFIGS[session_id]

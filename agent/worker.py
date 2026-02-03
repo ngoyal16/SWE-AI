@@ -6,6 +6,7 @@ from .common.config import settings
 from .workflow_pkg import WorkflowManager, AgentState
 from .common.storage import storage
 from .common.credentials import fetch_git_credentials
+from .common.ai_credentials import fetch_ai_credentials
 from .sandbox.daytona import DaytonaSandbox
 from .tools.git_tools import init_workspace, configure_git_global
 
@@ -35,8 +36,17 @@ def run_agent_session_sync(session_id: str, goal: str, repo_url: str = "", base_
                     log_message(session_id, f"DEBUG VERIFICATION - Token: {git_credentials.token}")
                 else:
                     log_message(session_id, "No Git credentials configured for this session")
+
+                # Fetch dynamic AI credentials
+                ai_credentials = fetch_ai_credentials(session_id, worker_token)
+                if ai_credentials:
+                    log_message(session_id, f"Fetched AI credentials (provider: {ai_credentials.provider}, model: {ai_credentials.model})")
+                    agent_manager.register_ai_config(session_id, ai_credentials)
+                else:
+                    log_message(session_id, "No AI credentials configured for this session")
+
             except Exception as e:
-                log_message(session_id, f"Warning: Could not fetch Git credentials: {e}")
+                log_message(session_id, f"Warning: Could not fetch credentials: {e}")
         else:
             log_message(session_id, "No worker token available, skipping credential fetch")
 
@@ -119,6 +129,7 @@ def run_agent_session_sync(session_id: str, goal: str, repo_url: str = "", base_
             # log_message(session_id, "Tearing down sandbox...")
             # sandbox.teardown()
             agent_manager.unregister_sandbox(session_id)
+        agent_manager.unregister_ai_config(session_id)
 
 def main():
     logger.info("Worker started. Polling for sessions...")

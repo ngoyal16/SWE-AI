@@ -7,7 +7,7 @@ from ..state import AgentState, log_update
 
 def plan_critic_node(state: AgentState) -> AgentState:
     print(f"[{state['session_id']}] PLAN CRITIC: Reviewing plan...")
-    llm = get_llm()
+    llm = get_llm(state["session_id"])
     callbacks = [SessionCallbackHandler(state["session_id"])]
 
     prompt = ChatPromptTemplate.from_messages([

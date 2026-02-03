@@ -19,11 +19,6 @@ services:
       - STORAGE_TYPE=redis
       - DB_DSN=/data/swe-ai.db
       - SECRETS_ENCRYPTION_KEY=${SECRETS_ENCRYPTION_KEY}
-      - OPENAI_API_KEY
-      - GOOGLE_API_KEY
-      - AZURE_OPENAI_API_KEY
-      - LLM_PROVIDER
-      - LLM_MODEL
     volumes:
       - ./data:/data
     depends_on:
@@ -39,11 +34,6 @@ services:
       - STORAGE_TYPE=redis
       - API_BASE_URL=http://api:8000
       - SECRETS_ENCRYPTION_KEY=${SECRETS_ENCRYPTION_KEY}
-      - OPENAI_API_KEY
-      - GOOGLE_API_KEY
-      - AZURE_OPENAI_API_KEY
-      - LLM_PROVIDER
-      - LLM_MODEL
       - SANDBOX_TYPE=daytona
       - DAYTONA_API_KEY
       - DAYTONA_TARGET_IMAGE
