@@ -28,6 +28,9 @@ def run_agent_session_sync(session_id: str, goal: str, repo_url: str = "", base_
 
         # Fetch dynamic Git credentials from server using worker token
         if worker_token:
+            # Register worker token for use in workflow nodes (e.g., PR creation)
+            agent_manager.register_worker_token(session_id, worker_token)
+
             try:
                 git_credentials = fetch_git_credentials(session_id, worker_token)
                 if git_credentials:
@@ -130,6 +133,7 @@ def run_agent_session_sync(session_id: str, goal: str, repo_url: str = "", base_
             # sandbox.teardown()
             agent_manager.unregister_sandbox(session_id)
         agent_manager.unregister_ai_config(session_id)
+        agent_manager.unregister_worker_token(session_id)
 
 def main():
     logger.info("Worker started. Polling for sessions...")

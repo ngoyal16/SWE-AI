@@ -74,7 +74,7 @@ Follow these strict rules:
             if "Error" in push_res:
                  state["status"] = "FAILED" # Or maybe partially completed?
             else:
-                 state["status"] = "COMPLETED"
+                 state["status"] = "PR_CREATION"
         else:
              log_update(state, "Warning: Branch name missing in state. Cannot push.")
              state["status"] = "COMPLETED"

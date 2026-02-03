@@ -12,6 +12,9 @@ ACTIVE_SANDBOXES: Dict[str, Sandbox] = {}
 # Registry for active AI configurations (Used by Worker process only)
 ACTIVE_AI_CONFIGS: Dict[str, Any] = {}
 
+# Registry for active worker tokens (Used by Worker process only)
+ACTIVE_WORKER_TOKENS: Dict[str, str] = {}
+
 class AgentManager:
     """Singleton to manage task submission (API side) and execution (Worker side)"""
     _instance = None
@@ -138,3 +141,16 @@ class AgentManager:
         """Worker Side: Cleanup AI config"""
         if session_id in ACTIVE_AI_CONFIGS:
             del ACTIVE_AI_CONFIGS[session_id]
+
+    def get_worker_token(self, session_id: str) -> Optional[str]:
+        """Worker Side: Retrieve active worker token"""
+        return ACTIVE_WORKER_TOKENS.get(session_id)
+
+    def register_worker_token(self, session_id: str, token: str):
+        """Worker Side: Register worker token"""
+        ACTIVE_WORKER_TOKENS[session_id] = token
+
+    def unregister_worker_token(self, session_id: str):
+        """Worker Side: Cleanup worker token"""
+        if session_id in ACTIVE_WORKER_TOKENS:
+            del ACTIVE_WORKER_TOKENS[session_id]
