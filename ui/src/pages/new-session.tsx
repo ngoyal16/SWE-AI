@@ -12,7 +12,6 @@ import { Switch } from "@/components/ui/switch"
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea'
-import { AxiosError } from 'axios';
 
 export default function NewSessionPage() {
     const navigate = useNavigate();
@@ -29,8 +28,8 @@ export default function NewSessionPage() {
             toast.success('Session started successfully!');
             navigate(`/session/${resp.session_id}`);
         },
-        onError: (error: AxiosError<{ error: string }>) => {
-            const message = error.response?.data?.error || 'Failed to start session';
+        onError: (error: Error) => {
+            const message = error.message || 'Failed to start session';
             toast.error(message);
         },
     });
