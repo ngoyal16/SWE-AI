@@ -1,0 +1,26 @@
+# Dependencies - installed in container
+ui/node_modules
+server/node_modules
+node_modules
+
+# Build outputs
+ui/dist
+
+# Development files
+.git
+.gitignore
+*.md
+.env*
+.vscode
+.idea
+
+# Python virtual environment
+venv
+__pycache__
+*.pyc
+
+# Test files
+tests
+
+# Workspace directory
+workspace

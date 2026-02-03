@@ -5,56 +5,56 @@ services:
     image: redis:7
     ports:
       - "6379:6379"
+    networks:
+      - swe-network
 
   api:
-    build: .
-    command: uvicorn app.server:app --host 0.0.0.0 --port 8000
+    build:
+      context: .
+      dockerfile: server/Dockerfile
     ports:
       - "8000:8000"
     environment:
       - REDIS_URL=redis://redis:6379/0
       - STORAGE_TYPE=redis
-      # Pass through env vars from host
+      - DB_DSN=/data/swe-ai.db
+      - SECRETS_ENCRYPTION_KEY=${SECRETS_ENCRYPTION_KEY}
       - OPENAI_API_KEY
       - GOOGLE_API_KEY
       - AZURE_OPENAI_API_KEY
-      - GIT_USERNAME
-      - GIT_EMAIL
-      - GIT_TOKEN
       - LLM_PROVIDER
       - LLM_MODEL
-      - SANDBOX_TYPE=daytona
-      - DAYTONA_API_KEY
-      - DAYTONA_API_URL
-      - DAYTONA_SERVER_URL
-      - DAYTONA_TARGET_IMAGE
-      - DAYTONA_TARGET_REPO
     volumes:
-      - ./workspace:/app/workspace
+      - ./data:/data
     depends_on:
       - redis
+    networks:
+      - swe-network
 
   worker:
     build: .
-    command: python -m app.worker
+    command: python -m agent.worker
     environment:
       - REDIS_URL=redis://redis:6379/0
       - STORAGE_TYPE=redis
+      - API_BASE_URL=http://api:8000
+      - SECRETS_ENCRYPTION_KEY=${SECRETS_ENCRYPTION_KEY}
       - OPENAI_API_KEY
       - GOOGLE_API_KEY
       - AZURE_OPENAI_API_KEY
-      - GIT_USERNAME
-      - GIT_EMAIL
-      - GIT_TOKEN
       - LLM_PROVIDER
       - LLM_MODEL
-      - SANDBOX_TYPE=daytona
       - DAYTONA_API_KEY
-      - DAYTONA_API_URL
-      - DAYTONA_SERVER_URL
       - DAYTONA_TARGET_IMAGE
       - DAYTONA_TARGET_REPO
     volumes:
-      - ./workspace:/app/workspace
+      - .:/app
     depends_on:
       - redis
+      - api
+    networks:
+      - swe-network
+
+networks:
+  swe-network:
+    driver: bridge
