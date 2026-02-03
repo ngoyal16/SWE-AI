@@ -7,10 +7,15 @@ import (
 	"io"
 	"net/http"
 	"pixcorp-swe-ai/pkg/model"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
 )
+
+// repoSyncLock prevents concurrent writes to the repository and repository_access tables
+// for the same repository, which could cause race conditions.
+var repoSyncLock sync.Mutex
 
 // SyncAllRepositories synchronizes repositories for all users who have linked identities
 func SyncAllRepositories(ctx context.Context) error {
@@ -21,22 +26,33 @@ func SyncAllRepositories(ctx context.Context) error {
 
 	log.Info().Int("count", len(identities)).Msg("Starting repository sync for all identities")
 
-	for _, identity := range identities {
-		log.Info().
-			Str("user", identity.User.Username).
-			Str("provider", identity.Provider).
-			Msg("Syncing repositories for identity")
+	var wg sync.WaitGroup
+	// Limit concurrency to avoid overwhelming the database or API
+	semaphore := make(chan struct{}, 10)
 
-		if err := SyncIdentityRepositories(ctx, &identity); err != nil {
-			log.Error().
-				Err(err).
-				Str("user", identity.User.Username).
-				Str("provider", identity.Provider).
-				Msg("Failed to sync repositories for identity")
-			continue
-		}
+	for _, identity := range identities {
+		wg.Add(1)
+		go func(id model.UserIdentity) {
+			defer wg.Done()
+			semaphore <- struct{}{}        // Acquire token
+			defer func() { <-semaphore }() // Release token
+
+			log.Info().
+				Str("user", id.User.Username).
+				Str("provider", id.Provider).
+				Msg("Syncing repositories for identity")
+
+			if err := SyncIdentityRepositories(ctx, &id); err != nil {
+				log.Error().
+					Err(err).
+					Str("user", id.User.Username).
+					Str("provider", id.Provider).
+					Msg("Failed to sync repositories for identity")
+			}
+		}(identity)
 	}
 
+	wg.Wait()
 	return nil
 }
 
@@ -47,10 +63,14 @@ func SyncIdentityRepositories(ctx context.Context, identity *model.UserIdentity)
 		return fmt.Errorf("provider %s not found or disabled: %w", identity.Provider, err)
 	}
 
-	repos, err := fetchRepositories(ctx, &provider, identity.Token)
+	repos, err := fetchRepositoriesFunc(ctx, &provider, identity.Token)
 	if err != nil {
 		return fmt.Errorf("failed to fetch repositories: %w", err)
 	}
+
+	// Lock DB updates to prevent race conditions when multiple users sync the same repo
+	repoSyncLock.Lock()
+	defer repoSyncLock.Unlock()
 
 	return syncReposToDB(ctx, identity, &provider, repos)
 }
@@ -143,6 +163,9 @@ type remoteRepo struct {
 	ExternalID    string
 	Permission    string
 }
+
+// fetchRepositoriesFunc is a variable to allow mocking in tests
+var fetchRepositoriesFunc = fetchRepositories
 
 func fetchRepositories(ctx context.Context, provider *model.GitProvider, token string) ([]remoteRepo, error) {
 	switch provider.Driver {
