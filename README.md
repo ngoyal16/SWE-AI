@@ -1,10 +1,17 @@
 # SWE Agent
 
-An end-to-end asynchronous coding agent inspired by Open SWE, capable of using any LLM (Gemini, OpenAI, Azure, Ollama). It features a scalable microservices architecture and supports secure deployment on Cloud VMs or Kubernetes.
+An end-to-end asynchronous coding agent inspired by Open SWE, capable of using any LLM (Gemini, OpenAI, Azure, Ollama). It features a scalable microservices architecture and supports secure deployment on Cloud VMs.
 
 ## Documentation
 
 *   [**User Guide**](docs/USER_GUIDE.md): Detailed instructions on installation, configuration, and usage.
+*   [**API Reference**](docs/API.md): Full documentation of all API endpoints.
+
+## Tech Stack
+
+*   **Go (v1.25)**: API Service
+*   **Python (v3.12+)**: Agent Worker & Workflow Logic (managed by `uv`)
+*   **Node (v22+)**: React Frontend (managed by `pnpm`)
 
 ## Features
 
@@ -14,14 +21,9 @@ An end-to-end asynchronous coding agent inspired by Open SWE, capable of using a
 *   **Git Integration**: Provider-agnostic tools to Clone, Branch, Commit, and Push.
 *   **Review Mode**: Optional pause-and-resume workflow to allow humans to review and approve plans before code execution.
 *   **Sandboxed Execution**:
-    *   **Local**: Isolated directory workspaces.
-    *   **Kubernetes**: Ephemeral Pods with support for **MicroVMs** (Kata Containers, gVisor) for hardware-level isolation.
-*   **Persistent Storage**: Task state and logs are persisted (Redis or File-based) to survive restarts.
-
-## Documentation
-
-*   [**User Guide**](docs/USER_GUIDE.md): Installation and usage details.
-*   [**API Reference**](docs/API.md): Full documentation of all API endpoints.
+    *   **Daytona**: (Default) Remote, secure, and ephemeral development environments.
+    *   **Local**: Isolated directory workspaces for simple testing.
+*   **Persistent Storage**: Session state and logs are persisted (Redis or File-based) to survive restarts.
 
 ## Quick Start (Docker Compose)
 
@@ -29,6 +31,7 @@ An end-to-end asynchronous coding agent inspired by Open SWE, capable of using a
     ```bash
     OPENAI_API_KEY=sk-...
     LLM_PROVIDER=openai
+    DAYTONA_API_KEY=...
     ```
 
 2.  **Run**:
@@ -38,9 +41,9 @@ An end-to-end asynchronous coding agent inspired by Open SWE, capable of using a
     ```
 
 3.  **Interact**:
-    Submit a task to the API (exposed on port 8000).
+    Submit a session to the API (exposed on port 8000).
     ```bash
-    curl -X POST http://localhost:8000/agent/tasks \
+    curl -X POST http://localhost:8000/agent/sessions \
       -H "Content-Type: application/json" \
-      -d '{"goal": "Fix bug in login logic", "repo_url": "https://github.com/example/repo.git"}'
+      -d '{"goal": "Fix bug in login logic", "repo_url": "https://github.com/example/repo.git", "mode": "auto"}'
     ```

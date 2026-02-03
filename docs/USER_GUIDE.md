@@ -1,6 +1,6 @@
 # SWE Agent User Guide
 
-This guide provides detailed instructions on how to install, configure, and use the SWE Agent. The agent is designed to run autonomously to solve coding tasks using advanced LLMs (Gemini-3.5 or Ops-4.5) in a secure, sandboxed environment.
+This guide provides detailed instructions on how to install, configure, and use the SWE Agent. The agent is designed to run autonomously to solve coding sessions using advanced LLMs (Gemini-3.5 or Ops-4.5) in a secure, sandboxed environment.
 
 ## Table of Contents
 1.  [Prerequisites](#prerequisites)
@@ -57,7 +57,7 @@ GIT_EMAIL=bot@example.com
 GIT_TOKEN=github_pat_... # Personal Access Token for HTTPS auth
 
 # Sandbox Configuration
-# 'local': Runs in ./workspace/{task_id}
+# 'local': Runs in ./workspace/{session_id}
 # 'daytona': Runs in a remote Daytona environment
 SANDBOX_TYPE=daytona
 
@@ -73,7 +73,7 @@ DAYTONA_TARGET_IMAGE=ubuntu:22.04 # Image for the sandbox environment
 
 ### Local Docker Mode
 
-This runs the agent in a single container. If `SANDBOX_TYPE=local`, tasks run in isolated directories inside this container.
+This runs the agent in a single container. If `SANDBOX_TYPE=local`, sessions run in isolated directories inside this container.
 
 1.  **Build the Image**
     ```bash
@@ -87,7 +87,7 @@ This runs the agent in a single container. If `SANDBOX_TYPE=local`, tasks run in
 
 ### Daytona Mode
 
-This mode uses Daytona for strong isolation. The Agent orchestrates tasks, but code execution happens in remote Daytona sandboxes.
+This mode uses Daytona for strong isolation. The Agent orchestrates sessions, but code execution happens in remote Daytona sandboxes.
 
 1.  **Ensure Daytona is Configured**
     Make sure your `DAYTONA_API_KEY` is set in the environment.
@@ -108,7 +108,7 @@ Once running (port 8000), you can interact via the HTTP API.
 You can start a session in **Auto** (default) or **Review** mode.
 
 #### Auto Mode
-The agent plans and executes the entire task autonomously.
+The agent plans and executes the entire session autonomously.
 
 ```bash
 curl -X POST http://localhost:8000/agent/sessions \
@@ -162,7 +162,7 @@ curl http://localhost:8000/agent/sessions/550e8400-e29b-41d4-a716-446655440000
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "RUNNING", # QUEUED, RUNNING, COMPLETED, FAILED
   "logs": [
-    "Starting task...",
+    "Starting session...",
     "Cloning repo...",
     "PLANNER: Generating plan...",
     "PROGRAMMER: Executing plan..."
@@ -200,7 +200,7 @@ The agent uses a **Workflow Manager** pattern:
 4.  **Reviewer**: Validates changes.
 
 ### Multi-Session Support
-The agent is fully asynchronous. API requests return immediately, and the workflow runs in a background thread. You can submit multiple tasks simultaneously.
+The agent is fully asynchronous. API requests return immediately, and the workflow runs in a background thread. You can submit multiple sessions simultaneously.
 
 ### Daytona Sandbox
 When `SANDBOX_TYPE=daytona`, the agent uses the Daytona platform to create secure, ephemeral development environments. All file operations and command executions happen remotely via the Daytona API/SDK.
