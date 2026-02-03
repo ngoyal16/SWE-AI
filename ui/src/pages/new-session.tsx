@@ -12,6 +12,13 @@ import { Switch } from "@/components/ui/switch"
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 
 export default function NewSessionPage() {
     const navigate = useNavigate();
@@ -19,7 +26,7 @@ export default function NewSessionPage() {
     const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
     const [goal, setGoal] = useState('');
     const [baseBranch, setBaseBranch] = useState('');
-    const [isReviewMode, setIsReviewMode] = useState(false);
+    const [mode, setMode] = useState<'auto' | 'review'>('auto');
     const { selectedProfileId } = useAIProfile();
 
     const createSessionMutation = useMutation({
@@ -50,7 +57,7 @@ export default function NewSessionPage() {
             repo_url: selectedRepo.clone_url,
             repository_id: selectedRepo.id,
             base_branch: baseBranch || selectedRepo.default_branch,
-            mode: isReviewMode ? 'review' : 'auto',
+            mode,
             ai_profile_id: parseInt(selectedProfileId),
         });
     };
@@ -100,19 +107,22 @@ export default function NewSessionPage() {
                         </div>
 
                         <div className="flex items-center gap-2">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className={cn(
-                                    "h-9 px-3 rounded-xl transition-all",
-                                    isReviewMode ? "bg-primary/10 text-primary hover:bg-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                                )}
-                                onClick={() => setIsReviewMode(!isReviewMode)}
-                            >
-                                <Eye className="h-4 w-4 mr-2" />
-                                <span className="text-sm">Review</span>
-                            </Button>
+                            <Select value={mode} onValueChange={(v) => setMode(v as 'auto' | 'review')}>
+                                <SelectTrigger className="h-9 w-[110px] rounded-xl border-border/50 bg-background/50 hover:bg-background transition-colors text-xs font-medium">
+                                    <div className="flex items-center gap-2">
+                                        {mode === 'auto' ? <Zap className="h-3.5 w-3.5 text-yellow-500" /> : <Eye className="h-3.5 w-3.5 text-primary" />}
+                                        <SelectValue />
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent align="end">
+                                    <SelectItem value="auto">
+                                        <span className="font-medium">Auto</span>
+                                    </SelectItem>
+                                    <SelectItem value="review">
+                                        <span className="font-medium">Review</span>
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
                             <Button
                                 size="icon"
                                 className={cn(
