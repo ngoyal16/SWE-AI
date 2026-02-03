@@ -10,6 +10,7 @@ from .base import (
     create_enhanced_tools,
 )
 from .grep_tool import create_grep_tool
+from .editor_tool import create_editor_tools
 from .patch_tool import create_apply_patch_tool
 from .install_tool import create_install_dependencies_tool
 from .url_tool import create_url_content_tool
@@ -30,6 +31,8 @@ __all__ = [
     "create_enhanced_tools",
     # Search
     "create_grep_tool",
+    # Editor
+    "create_editor_tools",
     # File operations
     "create_apply_patch_tool",
     # Dependencies
