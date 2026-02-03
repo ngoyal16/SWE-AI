@@ -26,6 +26,7 @@ class AgentState(TypedDict):
     git_co_author_name: str
     git_co_author_email: str
     review_count: int
+    pr_url: Optional[str]
 
 def log_update(state: AgentState, message: str):
     state["logs"].append(message)

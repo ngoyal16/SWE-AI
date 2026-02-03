@@ -87,6 +87,7 @@ func startServer() {
 	{
 		internalGroup.GET("/sessions/:session_id/git-credentials", handlers.GetGitCredentials)
 		internalGroup.GET("/sessions/:session_id/ai-credentials", handlers.GetAICredentials)
+		internalGroup.POST("/sessions/:session_id/pr", handlers.CreatePullRequest)
 	}
 
 	v1 := r.Group("/api/v1")
