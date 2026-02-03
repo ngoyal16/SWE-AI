@@ -44,6 +44,7 @@ services:
       - AZURE_OPENAI_API_KEY
       - LLM_PROVIDER
       - LLM_MODEL
+      - SANDBOX_TYPE=daytona
       - DAYTONA_API_KEY
       - DAYTONA_TARGET_IMAGE
       - DAYTONA_TARGET_REPO
