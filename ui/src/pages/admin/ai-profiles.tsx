@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePageHeader } from '@/context/page-header-context';
-import { aiProfileApi, type AIProfile, AI_PROVIDERS } from '@/api/ai-profile';
+import { aiProfileApi, type AIProfile, type AIProfileInput, AI_PROVIDERS } from '@/api/ai-profile';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,7 +58,7 @@ export default function AIProfilesPage() {
     });
 
     const updateMutation = useMutation({
-        mutationFn: ({ id, data }: { id: number; data: any }) => aiProfileApi.update(id, data),
+        mutationFn: ({ id, data }: { id: number; data: AIProfileInput }) => aiProfileApi.update(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['admin-ai-profiles'] });
             toast.success('AI profile updated successfully');
@@ -86,12 +86,18 @@ export default function AIProfilesPage() {
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
-        const data = {
+
+        const apiKey = formData.get('api_key') as string;
+
+        const data: AIProfileInput = {
             name: formData.get('name') as string,
             provider: formData.get('provider') as string,
-            api_key: formData.get('api_key') as string,
-            base_url: formData.get('base_url') as string,
-            default_model: formData.get('default_model') as string,
+            // If empty string (and we are editing), we might want to send undefined to keep existing?
+            // Or usually the backend handles "if empty, don't update".
+            // For now, let's treat empty string as undefined for optional fields.
+            api_key: apiKey || undefined,
+            base_url: (formData.get('base_url') as string) || undefined,
+            default_model: (formData.get('default_model') as string) || undefined,
             is_enabled: true,
         };
 

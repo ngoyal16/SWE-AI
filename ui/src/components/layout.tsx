@@ -7,12 +7,13 @@ import {
     Menu,
     Shield,
     GitBranch,
-    Cpu
+    Cpu,
+    Plus
 } from "lucide-react"
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom"
 import { useTheme } from "@/components/theme-provider"
 import { useAuth } from "@/context/auth-context"
-import { useHeaderContext } from "@/context/page-header-context"
+// import { useHeaderContext } from "@/context/page-header-context"
 import { Button } from "@/components/ui/button"
 import {
     DropdownMenu,
@@ -32,7 +33,7 @@ export default function Layout() {
     const { user, logout } = useAuth()
     const navigate = useNavigate()
     const location = useLocation()
-    const { title, description } = useHeaderContext()
+    // const { title, description } = useHeaderContext()
     const isAdminMode = location.pathname.startsWith("/admin")
 
     // Admin menu items
@@ -44,31 +45,47 @@ export default function Layout() {
     const NavLink = ({ item, isActive, className = "" }: { item: typeof adminItems[0], isActive: boolean, className?: string }) => (
         <Link
             to={item.to}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all duration-200 group ${isActive
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-primary hover:bg-muted"
+            className={`flex items-center gap-3 rounded-full px-4 py-3 text-sm font-medium transition-all duration-200 group ${isActive
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 } ${className}`}
         >
-            <item.icon className={`h-4 w-4 shrink-0 transition-transform duration-200 ${isActive ? "scale-110" : "group-hover:scale-110"}`} />
+            <item.icon className={`h-5 w-5 shrink-0 ${isActive ? "text-primary" : ""}`} />
             <span>{item.label}</span>
         </Link>
     )
 
     return (
-        <div className="bg-background min-h-screen w-full md:grid md:grid-cols-[220px_1fr] lg:grid-cols-[260px_1fr]">
-            <div className="bg-muted/40 hidden border-r md:block">
-                <div className="flex h-full max-h-screen flex-col gap-2">
-                    <div className="flex h-16 items-center border-b px-6 lg:h-[72px]">
-                        <Link to="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-md shadow-primary/20">
-                                <Command className="h-5 w-5" />
+        <div className="bg-background min-h-screen w-full md:grid md:grid-cols-[280px_1fr] lg:grid-cols-[300px_1fr]">
+            {/* Sidebar */}
+            <div className="bg-sidebar-background hidden border-r border-sidebar-border md:block">
+                <div className="flex h-full max-h-screen flex-col gap-4 p-4">
+                    {/* Logo Area */}
+                    <div className="flex h-16 items-center px-2">
+                        <Link to="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+                                <Command className="h-6 w-6" />
                             </div>
-                            <span className="text-lg font-bold tracking-tight">SWE Agent</span>
+                            <span className="text-xl font-semibold tracking-tight text-sidebar-foreground">SWE AI Agent</span>
                         </Link>
                     </div>
-                    <div className="flex-1 overflow-auto py-2">
+
+                    {/* New Session Button */}
+                    {!isAdminMode && (
+                        <Button
+                            className="w-full justify-start gap-3 rounded-2xl h-14 px-4 shadow-md bg-primary/10 hover:bg-primary/20 text-primary border-none"
+                            variant="outline"
+                            onClick={() => navigate('/')}
+                        >
+                            <Plus className="h-6 w-6" />
+                            <span className="font-medium text-base">New Session</span>
+                        </Button>
+                    )}
+
+                    {/* Navigation */}
+                    <div className="flex-1 overflow-auto py-2 -mx-2 px-2">
                         {isAdminMode ? (
-                            <nav className="grid items-start px-2 text-sm font-medium lg:px-4 gap-1">
+                            <nav className="grid items-start gap-1">
                                 {adminItems.map((item) => {
                                     const isActive = location.pathname === item.to;
                                     return <NavLink key={item.to} item={item} isActive={isActive} />;
@@ -78,31 +95,79 @@ export default function Layout() {
                             <SidebarSessionList />
                         )}
                     </div>
+
+                    {/* Sidebar Footer (User Profile) */}
+                     <div className="mt-auto pt-4 border-t border-sidebar-border">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="w-full justify-start h-auto py-2 px-2 gap-3 hover:bg-sidebar-accent rounded-xl">
+                                    <Avatar className="h-9 w-9 border border-border">
+                                        <AvatarImage src={user?.avatar_url} alt={user?.name || user?.email} />
+                                        <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                                            {(user?.name || user?.email || "U").charAt(0).toUpperCase()}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex flex-col items-start text-left overflow-hidden">
+                                        <span className="text-sm font-medium truncate w-full text-sidebar-foreground">{user?.name || "User"}</span>
+                                        <span className="text-xs text-muted-foreground truncate w-full">{user?.email}</span>
+                                    </div>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-56 rounded-xl shadow-lg border-border/50 bg-popover/95 backdrop-blur-sm">
+                                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => navigate("/settings")} className="rounded-lg cursor-pointer">
+                                    <Settings className="mr-2 h-4 w-4" />
+                                    <span>Settings</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive rounded-lg cursor-pointer">
+                                    <LogOut className="mr-2 h-4 w-4" />
+                                    <span>Log out</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                 </div>
             </div>
-            <div className="flex flex-col">
-                <header className="bg-muted/40 flex h-14 items-center gap-4 border-b px-4 lg:h-[60px] lg:px-6">
+
+            {/* Main Content Area */}
+            <div className="flex flex-col min-h-screen">
+                <header className="flex h-16 items-center gap-4 px-6 lg:h-[72px] sticky top-0 z-10 bg-background/80 backdrop-blur-md">
                     <Sheet>
                         <SheetTrigger asChild>
                             <Button
-                                variant="outline"
+                                variant="ghost"
                                 size="icon"
-                                className="shrink-0 md:hidden"
+                                className="shrink-0 md:hidden rounded-full"
                             >
-                                <Menu className="h-5 w-5" />
+                                <Menu className="h-6 w-6" />
                                 <span className="sr-only">Toggle navigation menu</span>
                             </Button>
                         </SheetTrigger>
-                        <SheetContent side="left" className="flex flex-col">
+                        <SheetContent side="left" className="flex flex-col w-[300px] p-4 rounded-r-2xl border-none">
                             <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-                            <nav className="grid gap-2 text-lg font-medium pt-4">
-                                <Link
-                                    to="/"
-                                    className="flex items-center gap-2 text-lg font-bold mb-4"
-                                >
-                                    <Command className="h-5 w-5" />
-                                    <span>SWE Agent</span>
+                             <div className="flex h-16 items-center px-2 mb-4">
+                                <Link to="/" className="flex items-center gap-3">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                                        <Command className="h-6 w-6" />
+                                    </div>
+                                    <span className="text-xl font-semibold tracking-tight">SWE AI Agent</span>
                                 </Link>
+                            </div>
+
+                            {!isAdminMode && (
+                                <Button
+                                    className="w-full justify-start gap-3 rounded-2xl h-14 px-4 shadow-none bg-secondary/50 text-foreground mb-4"
+                                    variant="ghost"
+                                    onClick={() => navigate('/')}
+                                >
+                                    <Plus className="h-6 w-6" />
+                                    <span className="font-medium">New Session</span>
+                                </Button>
+                            )}
+
+                            <nav className="flex-1 overflow-y-auto -mx-2 px-2">
                                 {isAdminMode ? (
                                     adminItems.map((item) => {
                                         const isActive = location.pathname === item.to;
@@ -110,9 +175,9 @@ export default function Layout() {
                                             <Link
                                                 key={item.to}
                                                 to={item.to}
-                                                className={`flex items-center gap-4 rounded-xl px-3 py-3 transition-all ${isActive
-                                                    ? "bg-primary text-primary-foreground"
-                                                    : "text-muted-foreground hover:text-foreground"
+                                                className={`flex items-center gap-4 rounded-full px-4 py-3 mb-1 transition-all ${isActive
+                                                    ? "bg-primary/10 text-primary font-medium"
+                                                    : "text-muted-foreground hover:bg-muted"
                                                     }`}
                                             >
                                                 <item.icon className="h-5 w-5" />
@@ -121,27 +186,21 @@ export default function Layout() {
                                         );
                                     })
                                 ) : (
-                                    <div className="h-full overflow-y-auto">
-                                        <SidebarSessionList />
-                                    </div>
+                                    <SidebarSessionList />
                                 )}
                             </nav>
                         </SheetContent>
                     </Sheet>
+
+                    {/* Page Title / Breadcrumb */}
                     <div className="w-full flex-1 flex flex-col justify-center">
-                        <div className="flex flex-col">
-                            <h2 className="text-sm font-semibold tracking-tight leading-none">{title}</h2>
-                            {description && (
-                                <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
-                                    {description}
-                                </p>
-                            )}
-                        </div>
+                       {/* Simplified header logic - mostly rely on page content */}
                     </div>
-                    <div className="flex items-center gap-2">
+
+                    <div className="flex items-center gap-3">
                         {/* AI Profile Selector */}
                         {!isAdminMode && (
-                            <div className="mr-2 hidden lg:block">
+                            <div className="hidden lg:block">
                                 <AIProfileSelector />
                             </div>
                         )}
@@ -149,7 +208,7 @@ export default function Layout() {
                         {/* Admin Mode Toggle Button */}
                         {user?.is_admin && (
                             <Button
-                                variant={isAdminMode ? "default" : "outline"}
+                                variant={isAdminMode ? "default" : "secondary"}
                                 size="sm"
                                 onClick={() => {
                                     if (isAdminMode) {
@@ -158,10 +217,10 @@ export default function Layout() {
                                         navigate("/admin/git-providers");
                                     }
                                 }}
-                                className="hidden md:flex gap-2 items-center"
+                                className="hidden md:flex gap-2 items-center rounded-full px-4"
                             >
                                 <Shield className="h-4 w-4" />
-                                <span>{isAdminMode ? "Exit Admin" : "Admin Mode"}</span>
+                                <span>{isAdminMode ? "Exit Admin" : "Admin"}</span>
                             </Button>
                         )}
 
@@ -169,48 +228,15 @@ export default function Layout() {
                             variant="ghost"
                             size="icon"
                             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                            className="rounded-full"
+                            className="rounded-full h-10 w-10"
                         >
-                            <Sun className="h-[1.2rem] w-[1.2rem] scale-100 transition-all rotate-0 dark:-rotate-90 dark:scale-0" />
-                            <Moon className="absolute h-[1.2rem] w-[1.2rem] scale-0 transition-all rotate-90 dark:rotate-0 dark:scale-100" />
+                            <Sun className="h-[1.4rem] w-[1.4rem] scale-100 transition-all rotate-0 dark:-rotate-90 dark:scale-0 text-orange-500" />
+                            <Moon className="absolute h-[1.4rem] w-[1.4rem] scale-0 transition-all rotate-90 dark:rotate-0 dark:scale-100 text-blue-400" />
                             <span className="sr-only">Toggle theme</span>
                         </Button>
-
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                                    <Avatar className="h-9 w-9">
-                                        <AvatarImage src={user?.avatar_url} alt={user?.name || user?.email} />
-                                        <AvatarFallback className="bg-primary/10 text-primary">
-                                            {(user?.name || user?.email || "U").charAt(0).toUpperCase()}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56">
-                                <DropdownMenuLabel className="font-normal">
-                                    <div className="flex flex-col space-y-1">
-                                        <p className="text-sm font-medium leading-none">{user?.name || "User"}</p>
-                                        <p className="text-xs leading-none text-muted-foreground">
-                                            {user?.email}
-                                        </p>
-                                    </div>
-                                </DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => navigate("/settings")}>
-                                    <Settings className="mr-2 h-4 w-4" />
-                                    <span>Settings</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
-                                    <LogOut className="mr-2 h-4 w-4" />
-                                    <span>Log out</span>
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
                     </div>
                 </header>
-                <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-background">
+                <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-8 lg:p-8 bg-background max-w-[1600px] w-full mx-auto">
                     <Outlet />
                 </main>
             </div>
