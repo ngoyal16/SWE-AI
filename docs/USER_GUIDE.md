@@ -6,11 +6,12 @@ This guide provides detailed instructions on how to install, configure, and use 
 1.  [Prerequisites](#prerequisites)
 2.  [Installation](#installation)
 3.  [Configuration](#configuration)
-4.  [Deployment](#deployment)
+4.  [AI Setup](#ai-setup)
+5.  [Deployment](#deployment)
     *   [Local Docker Mode](#local-docker-mode)
     *   [Daytona Mode](#daytona-mode)
-5.  [Usage](#usage)
-6.  [Architecture & Sandbox Details](#architecture--sandbox-details)
+6.  [Usage](#usage)
+7.  [Architecture & Sandbox Details](#architecture--sandbox-details)
 
 ---
 
@@ -19,10 +20,7 @@ This guide provides detailed instructions on how to install, configure, and use 
 *   **Docker**: Required for containerization.
 *   **Daytona**: Required for `daytona` sandbox mode.
 *   **Python 3.12+**: If running from source.
-*   **API Keys**:
-    *   OpenAI API Key (if using `ops-4.5` / GPT-4).
-    *   Google Gemini API Key (if using `gemini-3.5`).
-    *   Daytona API Key (if using `daytona` sandbox).
+*   **AI API Keys**: You will need keys for your preferred providers (OpenAI, Google, Azure, etc.) to configure them in the UI.
 
 ---
 
@@ -43,18 +41,11 @@ This guide provides detailed instructions on how to install, configure, and use 
 
 ## Configuration
 
-The agent is configured via environment variables. Create a `.env` file in the root directory:
+The agent's infrastructure is configured via environment variables. Create a `.env` file in the root directory:
 
 ```bash
-# LLM Configuration
-LLM_PROVIDER=openai # openai, google, azure, ollama
-LLM_MODEL=gpt-4-turbo-preview
-LLM_API_KEY=sk-...
-
-# Git Configuration (for the agent to commit/push)
-GIT_USERNAME=swe-agent-bot
-GIT_EMAIL=bot@example.com
-GIT_TOKEN=github_pat_... # Personal Access Token for HTTPS auth
+# Infrastructure Configuration
+REDIS_URL=redis://localhost:6379/0
 
 # Sandbox Configuration
 # 'local': Runs in ./workspace/{session_id}
@@ -66,6 +57,22 @@ DAYTONA_API_KEY=your-daytona-api-key
 DAYTONA_SERVER_URL=https://api.daytona.io # Optional
 DAYTONA_TARGET_IMAGE=ubuntu:22.04 # Image for the sandbox environment
 ```
+
+---
+
+## AI Setup
+
+The agent uses dynamic, session-based AI credentials. You do **not** configure LLM keys in the `.env` file.
+
+1.  Start the application (see [Deployment](#deployment)).
+2.  Navigate to the UI (default: `http://localhost:8000`).
+3.  Go to **Settings > AI Profiles**.
+4.  Create a new AI Profile:
+    *   **Name**: A descriptive name (e.g., "My GPT-4").
+    *   **Provider**: Select OpenAI, Gemini, Azure, or Ollama.
+    *   **Model**: The model identifier (e.g., `gpt-4-turbo`, `gemini-1.5-pro`).
+    *   **API Key**: Enter your secret key.
+5.  (Optional) Set a profile as **Default** or assign specific profiles to your user account.
 
 ---
 
