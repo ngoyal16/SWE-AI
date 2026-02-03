@@ -58,8 +58,8 @@ export default function Layout() {
     return (
         <div className="bg-background min-h-screen w-full md:grid md:grid-cols-[280px_1fr] lg:grid-cols-[300px_1fr]">
             {/* Sidebar */}
-            <div className="bg-sidebar-background hidden border-r border-sidebar-border md:block">
-                <div className="flex h-full max-h-screen flex-col gap-4 p-4">
+            <div className="bg-sidebar-background hidden border-r border-sidebar-border md:block sticky top-0 h-screen">
+                <div className="flex h-full flex-col gap-4 p-4">
                     {/* Logo Area */}
                     <div className="flex h-16 items-center px-2">
                         <Link to="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">

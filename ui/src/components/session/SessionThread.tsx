@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Loader2, Copy, Bot } from "lucide-react"
+import { Loader2, Copy, Bot, ArrowDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -12,12 +12,28 @@ interface SessionThreadProps {
 
 export function SessionThread({ logs, isLoading }: SessionThreadProps) {
     const scrollRef = useRef<HTMLDivElement>(null)
+    const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
+    const [isAtBottom, setIsAtBottom] = useState(true)
+
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
+        const atBottom = scrollHeight - scrollTop - clientHeight < 100
+        setShouldAutoScroll(atBottom)
+        setIsAtBottom(atBottom)
+    }
 
     useEffect(() => {
-        if (scrollRef.current) {
+        if (shouldAutoScroll && scrollRef.current) {
             scrollRef.current.scrollIntoView({ behavior: "smooth" })
         }
-    }, [logs])
+    }, [logs, shouldAutoScroll])
+
+    const scrollToBottom = () => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollIntoView({ behavior: "smooth" })
+            setShouldAutoScroll(true)
+        }
+    }
 
     const copyLogs = () => {
         if (!logs.length) return
@@ -27,14 +43,20 @@ export function SessionThread({ logs, isLoading }: SessionThreadProps) {
 
     return (
         <div className="flex flex-col h-full bg-card/50 relative group">
-            <div className="absolute top-4 right-6 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute top-4 right-6 z-20 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                {!isAtBottom && (
+                    <Button variant="outline" size="sm" className="h-8 gap-2 bg-background/80 backdrop-blur rounded-full" onClick={scrollToBottom}>
+                        <ArrowDown className="h-3.5 w-3.5" />
+                        <span className="text-xs">Scroll to Bottom</span>
+                    </Button>
+                )}
                 <Button variant="outline" size="sm" className="h-8 gap-2 bg-background/80 backdrop-blur rounded-full" onClick={copyLogs}>
                     <Copy className="h-3.5 w-3.5" />
                     <span className="text-xs">Copy Logs</span>
                 </Button>
             </div>
 
-            <ScrollArea className="flex-1 w-full px-4 sm:px-6 md:px-8">
+            <ScrollArea className="flex-1 w-full px-4 sm:px-6 md:px-8" onScroll={handleScroll}>
                 <div className="py-8 space-y-6 min-h-full max-w-4xl mx-auto">
                     {logs && logs.length > 0 ? (
                         <>
@@ -53,7 +75,7 @@ export function SessionThread({ logs, isLoading }: SessionThreadProps) {
                                                 {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                             </span>
                                         </div>
-                                        <div className="bg-surface-container-low/50 rounded-2xl rounded-tl-none p-4 md:p-5 text-sm md:text-base leading-relaxed text-foreground/90 font-mono shadow-sm border border-border/30 whitespace-pre-wrap break-words">
+                                        <div className="bg-surface-container-low/50 rounded-2xl rounded-tl-none p-4 md:p-5 text-sm md:text-base leading-relaxed text-foreground/90 font-mono shadow-sm border border-border/30 whitespace-pre-wrap break-all">
                                             {log}
                                         </div>
                                     </div>

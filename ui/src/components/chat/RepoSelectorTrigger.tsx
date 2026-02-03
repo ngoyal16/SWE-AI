@@ -6,18 +6,10 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover"
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from "@/components/ui/command"
 import { Button } from '@/components/ui/button';
-import { Check, ChevronsUpDown, GitBranch, Settings2, Loader2 } from 'lucide-react';
+import { Check, ChevronsUpDown, GitBranch, Settings2, Loader2, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-// import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 
 interface RepoSelectorTriggerProps {
     value: string;
@@ -67,19 +59,15 @@ export function RepoSelectorTrigger({ value, onValueChange }: RepoSelectorTrigge
             (data?.pages.flatMap((page: RepositoryResponse) => page.data) || []).map(repo => [repo.id, repo])
         ).values()
     );
+    // Find the selected repo in the current list, or use the value provided.
+    // Note: If the repo is not in the loaded list, we might not have its name.
+    // This is a limitation of not having a separate "fetch by id" or "initial repo" prop,
+    // but typically the list starts with recent/relevant repos or the user searches for it.
     const selectedRepo = repos.find(r => r.id.toString() === value);
 
-    const handleSelect = (currentValue: string) => {
-        console.log('handleSelect called with:', currentValue);
-        const repo = repos.find((r) => r.id.toString() === currentValue) || null;
-        console.log('Found repo:', repo);
-        if (repo) {
-            console.log('Calling onValueChange with:', repo.id, repo);
-            onValueChange(repo.id.toString(), repo);
-            setOpen(false);
-        } else {
-            console.log('Repo not found for value:', currentValue);
-        }
+    const handleSelect = (repo: Repository) => {
+        onValueChange(repo.id.toString(), repo);
+        setOpen(false);
     }
 
     return (
@@ -103,25 +91,36 @@ export function RepoSelectorTrigger({ value, onValueChange }: RepoSelectorTrigge
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0 bg-surface-container border-border/50 text-foreground shadow-xl rounded-xl" align="start">
-                    <Command className="bg-transparent" shouldFilter={false}>
-                        <CommandInput
+                <PopoverContent className="w-[300px] p-0 bg-surface-container border-border/50 text-foreground shadow-xl rounded-xl overflow-hidden" align="start">
+                    <div className="flex items-center border-b border-border/50 px-3">
+                        <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                        <Input
                             placeholder="Search repo..."
                             value={repoSearch}
-                            onValueChange={setRepoSearch}
-                            className="h-9 border-none focus:ring-0"
+                            onChange={(e) => setRepoSearch(e.target.value)}
+                            className="h-10 border-none shadow-none focus-visible:ring-0 px-0"
                         />
-                        <CommandList>
-                            <CommandEmpty className="py-4 text-center text-xs text-muted-foreground">
-                                {isFetching && !isFetchingNextPage ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "No repo found."}
-                            </CommandEmpty>
-                            <CommandGroup heading="Repositories" className="text-muted-foreground px-1 py-1">
+                    </div>
+
+                    <div className="max-h-[300px] overflow-y-auto overflow-x-hidden p-1">
+                        {repos.length === 0 && !isFetching && (
+                             <div className="py-6 text-center text-xs text-muted-foreground">No repo found.</div>
+                        )}
+                        {isFetching && repos.length === 0 && (
+                            <div className="py-6 text-center text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin mx-auto" /></div>
+                        )}
+
+                        {repos.length > 0 && (
+                            <div className="px-1 py-1">
+                                <div className="text-xs font-medium text-muted-foreground px-2 py-1.5">Repositories</div>
                                 {repos.map((repo) => (
-                                    <CommandItem
+                                    <div
                                         key={repo.id}
-                                        value={repo.id.toString()}
-                                        onSelect={() => handleSelect(repo.id.toString())}
-                                        className="text-foreground aria-selected:bg-surface-container-highest aria-selected:text-foreground cursor-pointer rounded-lg my-0.5"
+                                        onClick={() => handleSelect(repo)}
+                                        className={cn(
+                                            "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-surface-container-highest transition-colors",
+                                            value === repo.id.toString() ? "bg-surface-container-highest" : ""
+                                        )}
                                     >
                                         <Check
                                             className={cn(
@@ -139,27 +138,28 @@ export function RepoSelectorTrigger({ value, onValueChange }: RepoSelectorTrigge
                                                 )}
                                             </div>
                                         </div>
-                                    </CommandItem>
+                                    </div>
                                 ))}
-                            </CommandGroup>
-                            {hasNextPage && (
-                                <div className="p-1 border-t border-border/50">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="w-full text-xs h-7 text-muted-foreground hover:bg-surface-container-highest rounded-lg"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            fetchNextPage();
-                                        }}
-                                        disabled={isFetchingNextPage}
-                                    >
-                                        {isFetchingNextPage ? <Loader2 className="h-3 w-3 animate-spin" /> : "Load more"}
-                                    </Button>
-                                </div>
-                            )}
-                        </CommandList>
-                    </Command>
+                            </div>
+                        )}
+
+                        {hasNextPage && (
+                            <div className="p-1 border-t border-border/50">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-full text-xs h-7 text-muted-foreground hover:bg-surface-container-highest rounded-lg"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        fetchNextPage();
+                                    }}
+                                    disabled={isFetchingNextPage}
+                                >
+                                    {isFetchingNextPage ? <Loader2 className="h-3 w-3 animate-spin" /> : "Load more"}
+                                </Button>
+                            </div>
+                        )}
+                    </div>
                 </PopoverContent>
             </Popover>
 
