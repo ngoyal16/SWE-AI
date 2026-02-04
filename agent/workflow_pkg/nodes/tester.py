@@ -26,12 +26,12 @@ def tester_node(state: AgentState) -> AgentState:
             "3. Run the tests using 'run_command'. "
             "4. Analyze the output. "
             "   - If tests PASS: Respond with 'TESTS_PASSED'. "
-            "   - If tests FAIL: Respond with 'TESTS_FAILED' followed by a summary of the errors to be fixed.\n\n"
+            "   - If tests FAIL: Read any error logs mentioned in the output. Respond with 'TESTS_FAILED' followed by a detailed summary of the errors.\n\n"
             "### GOAL ADHERENCE & EXIT CRITERIA\n"
             "Sometimes there are no formal tests, or the goal is just to create a file.\n"
-            "- If the goal was to create a file or implement a feature, and you verify it exists and looks correct, treat that as a PASS.\n"
-            "- **IMPORTANT:** If the file already exists (e.g. 'File X already exists'), this is usually a SUCCESS, not a failure, unless the content is wrong.\n"
-            "- Do not ask the programmer to 'create it' if it is already there. Just verify it works.\n"
+            "- **No Tests Found:** If no test suite exists, create a temporary script (e.g., `verify_change.py`) to verify the specific changes work as expected. Run it, then delete it.\n"
+            "- **Verification:** If the goal was to create a file/feature, and you verify it exists and functions correctly, treat that as a PASS.\n"
+            "- **Existing Files:** If the file already exists, this is usually a SUCCESS, not a failure. Do NOT ask the programmer to 'create it' again.\n"
             "- If the plan is complete, respond 'TESTS_PASSED'."
         )
 

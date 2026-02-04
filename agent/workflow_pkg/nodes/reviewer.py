@@ -19,10 +19,16 @@ def reviewer_node(state: AgentState) -> AgentState:
 
         review_count = state.get("review_count", 0)
         
-        system_prompt = "You are a pragmatic Code Reviewer. Check the workspace to verify if the core goal has been met and the code is functionally correct. Use 'read_file' or 'run_command' (e.g. tests) to verify. If the core requirements are satisfied, respond with 'APPROVED'. Avoid pedantic comments or 'nice-to-have' suggestions unless they are critical for correctness or security."
+        system_prompt = (
+            "You are a pragmatic Code Reviewer. Check the workspace to verify if the core goal has been met and the code is functionally correct. "
+            "Use 'read_file' or 'run_command' (e.g. tests) to verify.\n"
+            "- **Focus:** Core logic, correctness, security, and potential regressions.\n"
+            "- **Ignore:** Formatting, style preferences, or comments, unless they cause build failures.\n"
+            "If the core requirements are satisfied, respond with 'APPROVED'."
+        )
         
         if review_count >= 2:
-            system_prompt += " This is a subsequent review. Be even more lenient and prioritize approving if the core goal is functional. Do not request minor style changes."
+            system_prompt += " This is a subsequent review. Be even more lenient. Prioritize functional correctness over everything else. Do NOT request changes unless the code is broken."
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
