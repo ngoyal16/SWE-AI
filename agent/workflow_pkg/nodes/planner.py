@@ -25,6 +25,16 @@ def planner_node(state: AgentState) -> AgentState:
     if state.get("plan_critic_feedback"):
         context_str += f"\nPrevious Plan Rejected. Critic Feedback: {state['plan_critic_feedback']}\nPlease improve the plan."
 
+    # Check for pending inputs from user (e.g. from WAITING_FOR_USER state)
+    if state.get("pending_inputs"):
+        inputs_str = "\n".join(state["pending_inputs"])
+        context_str += f"\n\nUser Feedback/Input:\n{inputs_str}\n\nINSTRUCTION: The user has provided feedback. Update the plan to address this input."
+        # Clear pending inputs after consuming them?
+        # Ideally we might keep them in logs, but for prompt construction we use them here.
+        # We don't clear them here directly to avoid side effects in prompt construction,
+        # but the manager/router typically clears them or they accumulate.
+        # For now, we just use them.
+
     # If replanning (pending inputs or critic feedback), include the previous plan
     if state.get("plan"):
         context_str += f"\n\nExisting Plan:\n{state['plan']}\n\nINSTRUCTION: The goal has been updated or feedback received. Refine the Existing Plan to accommodate the new requirements. Do not lose progress if possible, but modify steps as needed."

@@ -20,9 +20,11 @@ def plan_critic_node(state: AgentState) -> AgentState:
 
     if "APPROVED" in feedback:
         if state.get("mode") == "review":
+            # In review mode, we pause for user input.
+            # The user might approve (move to BRANCH_NAMING) or provide new input (move to PLANNING).
             state["status"] = "WAITING_FOR_USER"
-            state["next_status"] = "BRANCH_NAMING"
-            log_update(state, "Plan Critic Approved. Waiting for user approval before generating branch.")
+            state["next_status"] = "PLANNING" # Default to PLANNING to allow refinement, UI can override to BRANCH_NAMING if approved directly
+            log_update(state, "Plan Critic Approved. Waiting for user input or final approval.")
         else:
             state["status"] = "BRANCH_NAMING"
         state["plan_critic_feedback"] = None
