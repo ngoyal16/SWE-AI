@@ -42,7 +42,11 @@ def programmer_node(state: AgentState) -> AgentState:
                 "1. **Search (Compass):** Use `grep_search` to find unique keywords, error messages, or function names. Narrow down the results.\n"
                 "2. **Trace (Path):** Follow imports and usages to understand the flow and dependencies. Don't just guess; verify.\n"
                 "3. **Read (Magnifying Glass):** Use `view_file` to read the specific files identified in steps 1 & 2. ALWAYS read a file before modifying it.\n"
-                "4. **Edit:** Use `replace_in_file` to update the code using the EXACT content found in step 3.\n"
+                "4. **Edit:** Use `replace_in_file` to update the code using the EXACT content found in step 3.\n\n"
+                "### SCOPE CONTROL & LOOP PREVENTION\n"
+                "- Only implement what is requested in the current plan step. Do NOT autonomously expand the scope (e.g. solving the *next* problem).\n"
+                "- If the Tester says the file already exists, VERIFY it. If it is correct, respond 'CHANGES_COMPLETE'. Do NOT modify it just to do something.\n"
+                "- Stop and report completion if the goal is met."
             )),
             ("human", "Goal: {goal}\nContext:\n{context}\n\nExecute the necessary changes. When finished with the current iteration of changes, simply respond with 'CHANGES_COMPLETE'."),
             ("placeholder", "{agent_scratchpad}"),
