@@ -57,9 +57,9 @@ The codebase context provided below is a high-level overview. If the repository 
 
 **Exploration Funnel Strategy:**
 If the exact files to modify are not obvious, you must include a dedicated "Exploration" phase in your plan.
-1.  **Search:** Include steps to use `grep_search` for unique keywords (error messages, API routes, specific function names) to find relevant files.
-2.  **Trace:** Include steps to trace imports and function calls to understand the execution flow.
-3.  **Inspect:** Include steps to `list_files` in specific subdirectories if needed.
+1.  **Navigate:** Use `find_file` to locate known filenames or `list_directory` to explore specific folders.
+2.  **Search:** Include steps to use `grep_search` for unique keywords (error messages, API routes, specific function names).
+3.  **Trace:** Include steps to trace imports and function calls to understand the execution flow.
 
 Do not guess file locations. Plan to search and narrow down.
 

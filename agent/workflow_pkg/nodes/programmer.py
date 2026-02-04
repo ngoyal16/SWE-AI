@@ -2,7 +2,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 
 from ...common.llm import get_llm
-from ...tools import create_filesystem_tools, create_git_tools, create_editor_tools, create_grep_tool
+from ...tools import create_filesystem_tools, create_git_tools, create_editor_tools, create_grep_tool, create_navigation_tools
 from ...callbacks import SessionCallbackHandler
 from ..state import AgentState, log_update
 from ..utils import get_active_sandbox
@@ -24,8 +24,9 @@ def programmer_node(state: AgentState) -> AgentState:
         filesystem_tools = create_filesystem_tools(sandbox)
         editor_tools = create_editor_tools(sandbox)
         grep_tools = [create_grep_tool(sandbox)]
+        nav_tools = create_navigation_tools(sandbox)
 
-        tools = filesystem_tools + editor_tools + grep_tools + allowed_git_tools
+        tools = filesystem_tools + editor_tools + grep_tools + nav_tools + allowed_git_tools
 
         # Context includes the plan and previous feedback
         context_str = f"Plan:\n{state['plan']}\n"
@@ -43,10 +44,11 @@ def programmer_node(state: AgentState) -> AgentState:
                 "3. **Diagnose First:** If fixing a bug, verify the error exists before fixing it.\n\n"
                 "### EXPLORATION & MODIFICATION STRATEGY (The Funnel)\n"
                 "When locating code in a large repository (10k+ files), use this structured approach:\n"
-                "1. **Search:** Use `grep_search` to find unique keywords, error messages, or function names.\n"
-                "2. **Trace:** Follow imports and usages to understand dependencies. Verify, don't guess.\n"
-                "3. **Read:** Use `view_file` to read the file. ALWAYS read a file before modifying it.\n"
-                "4. **Edit:** Use `replace_in_file` to update the code using the EXACT content found in step 3.\n\n"
+                "1. **Navigate:** Use `find_file` to locate specific files instantly or `list_directory` to explore structure.\n"
+                "2. **Search:** Use `grep_search` to find unique keywords, error messages, or function names.\n"
+                "3. **Trace:** Follow imports and usages to understand dependencies. Verify, don't guess.\n"
+                "4. **Read:** Use `view_file` to read the file. ALWAYS read a file before modifying it.\n"
+                "5. **Edit:** Use `replace_in_file` to update the code using the EXACT content found in step 3.\n\n"
                 "### SCOPE CONTROL & LOOP PREVENTION\n"
                 "- Only implement what is requested in the current plan step. Do NOT autonomously expand the scope (e.g. solving the *next* problem).\n"
                 "- If the Tester says the file already exists, VERIFY it. If it is correct, respond 'CHANGES_COMPLETE'. Do NOT modify it just to do something.\n"

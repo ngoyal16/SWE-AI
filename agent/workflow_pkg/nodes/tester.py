@@ -2,7 +2,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 
 from ...common.llm import get_llm
-from ...tools import create_filesystem_tools
+from ...tools import create_filesystem_tools, create_navigation_tools
 from ...callbacks import SessionCallbackHandler
 from ..state import AgentState, log_update
 from ..utils import get_active_sandbox
@@ -16,8 +16,10 @@ def tester_node(state: AgentState) -> AgentState:
         sandbox = get_active_sandbox(state["session_id"])
         # Tester needs filesystem tools to read config and run commands
         fs_tools = create_filesystem_tools(sandbox)
-        # We explicitly need run_command
-        tools = [t for t in fs_tools if t.name in ["read_file", "list_files", "run_command"]]
+        nav_tools = create_navigation_tools(sandbox)
+
+        # We explicitly need run_command and navigation tools
+        tools = [t for t in fs_tools if t.name in ["read_file", "list_files", "run_command"]] + nav_tools
 
         system_prompt = (
             "You are a QA Automation Engineer. Your goal is to ensure the codebase passes all tests and meets the plan requirements. "
