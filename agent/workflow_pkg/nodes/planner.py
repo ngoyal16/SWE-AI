@@ -25,6 +25,16 @@ def planner_node(state: AgentState) -> AgentState:
     if state.get("plan_critic_feedback"):
         context_str += f"\nPrevious Plan Rejected. Critic Feedback: {state['plan_critic_feedback']}\nPlease improve the plan."
 
+    # Check for pending inputs from user (e.g. from WAITING_FOR_USER state)
+    if state.get("pending_inputs"):
+        inputs_str = "\n".join(state["pending_inputs"])
+        context_str += f"\n\nUser Feedback/Input:\n{inputs_str}\n\nINSTRUCTION: The user has provided feedback. Update the plan to address this input."
+        # Clear pending inputs after consuming them?
+        # Ideally we might keep them in logs, but for prompt construction we use them here.
+        # We don't clear them here directly to avoid side effects in prompt construction,
+        # but the manager/router typically clears them or they accumulate.
+        # For now, we just use them.
+
     # If replanning (pending inputs or critic feedback), include the previous plan
     if state.get("plan"):
         context_str += f"\n\nExisting Plan:\n{state['plan']}\n\nINSTRUCTION: The goal has been updated or feedback received. Refine the Existing Plan to accommodate the new requirements. Do not lose progress if possible, but modify steps as needed."
@@ -39,7 +49,14 @@ def planner_node(state: AgentState) -> AgentState:
 {agents_md_context}
 ### CONTEXT & EXPLORATION
 The codebase context provided below is a high-level overview. If the repository is large or a monorepo, the file tree might be truncated.
-If you need to verify file locations or explore subdirectories (e.g. `packages/`, `apps/`) to understand the structure better, explicitly include a step in your plan to "Explore [path] using list_files".
+
+**Exploration Funnel Strategy:**
+If the exact files to modify are not obvious, you must include a dedicated "Exploration" phase in your plan.
+1.  **Search:** Include steps to use `grep_search` for unique keywords (error messages, API routes, specific function names) to find relevant files.
+2.  **Trace:** Include steps to trace imports and function calls to understand the execution flow.
+3.  **Inspect:** Include steps to `list_files` in specific subdirectories if needed.
+
+Do not guess file locations. Plan to search and narrow down.
 
 ### GIT & NAMING CONVENTIONS
 You are a strict adherent to Conventional Commits and Git Flow. You must follow these rules for every git operation:

@@ -20,13 +20,19 @@ def tester_node(state: AgentState) -> AgentState:
         tools = [t for t in fs_tools if t.name in ["read_file", "list_files", "run_command"]]
 
         system_prompt = (
-            "You are a QA Automation Engineer. Your goal is to ensure the codebase passes all tests. "
+            "You are a QA Automation Engineer. Your goal is to ensure the codebase passes all tests and meets the plan requirements. "
             "1. Identify the project type (e.g. Python, Node, Go) by looking at files (package.json, pyproject.toml, etc). "
             "2. Determine the command to run tests (e.g. 'npm test', 'pytest', 'go test ./...'). "
             "3. Run the tests using 'run_command'. "
             "4. Analyze the output. "
             "   - If tests PASS: Respond with 'TESTS_PASSED'. "
-            "   - If tests FAIL: Respond with 'TESTS_FAILED' followed by a summary of the errors to be fixed."
+            "   - If tests FAIL: Respond with 'TESTS_FAILED' followed by a summary of the errors to be fixed.\n\n"
+            "### GOAL ADHERENCE & EXIT CRITERIA\n"
+            "Sometimes there are no formal tests, or the goal is just to create a file.\n"
+            "- If the goal was to create a file or implement a feature, and you verify it exists and looks correct, treat that as a PASS.\n"
+            "- **IMPORTANT:** If the file already exists (e.g. 'File X already exists'), this is usually a SUCCESS, not a failure, unless the content is wrong.\n"
+            "- Do not ask the programmer to 'create it' if it is already there. Just verify it works.\n"
+            "- If the plan is complete, respond 'TESTS_PASSED'."
         )
 
         prompt = ChatPromptTemplate.from_messages([

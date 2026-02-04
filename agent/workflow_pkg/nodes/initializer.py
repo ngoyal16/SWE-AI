@@ -8,23 +8,35 @@ def initializer_node(state: AgentState) -> AgentState:
     try:
         # Generate Codebase Tree for context
         if hasattr(sandbox, "generate_codebase_tree"):
-            # Check for monorepo or large structure
-            root_list = sandbox.run_command("ls -F")
+            # Adaptive logic based on file count
+            try:
+                # count files
+                count_str = sandbox.run_command("git ls-files | wc -l").strip()
+                file_count = int(count_str) if count_str.isdigit() else 10000 # Fallback to high number if fails
+            except Exception:
+                file_count = 10000
 
-            is_monorepo = False
-            monorepo_indicators = ["apps/", "packages/", "services/", "modules/"]
-            if any(indicator in root_list for indicator in monorepo_indicators):
-                is_monorepo = True
-
-            # Adaptive depth
-            if is_monorepo:
-                # Shallower depth for monorepos to avoid context explosion
-                tree = sandbox.generate_codebase_tree(depth=2)
-                tree += "\n\n[Note]: This appears to be a Monorepo. The tree is truncated to depth 2. Use `list_files` to explore subdirectories."
-                log_update(state, "Detected Monorepo structure. Generated truncated codebase tree.")
+            if file_count < 1000:
+                # Small/Medium repo: Full context
+                tree = sandbox.generate_codebase_tree(depth=20)
+                log_update(state, f"Generated full codebase tree ({file_count} files).")
             else:
-                tree = sandbox.generate_codebase_tree(depth=3)
-                log_update(state, "Generated codebase tree for context.")
+                # Large repo: Adaptive depth
+                root_list = sandbox.run_command("ls -F")
+
+                is_monorepo = False
+                monorepo_indicators = ["apps/", "packages/", "services/", "modules/"]
+                if any(indicator in root_list for indicator in monorepo_indicators):
+                    is_monorepo = True
+
+                if is_monorepo:
+                    # Shallower depth for monorepos to avoid context explosion
+                    tree = sandbox.generate_codebase_tree(depth=2)
+                    tree += "\n\n[Note]: This appears to be a Monorepo. The tree is truncated to depth 2. Use `list_files` to explore subdirectories."
+                    log_update(state, "Detected Monorepo structure. Generated truncated codebase tree.")
+                else:
+                    tree = sandbox.generate_codebase_tree(depth=3)
+                    log_update(state, "Generated codebase tree for context.")
 
             state["codebase_tree"] = tree
         else:
