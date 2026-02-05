@@ -43,14 +43,14 @@ def reviewer_node(state: AgentState) -> AgentState:
         output = result.get("output", "")
 
         if "APPROVED" in output:
-            state["status"] = "COMMITTING"
+            state["status"] = "SUBMITTING"
             state["review_feedback"] = None
-            log_update(state, "Reviewer Approved. Proceeding to commit generation.")
+            log_update(state, "Reviewer Approved. Proceeding to submission.")
         else:
             state["review_count"] = review_count + 1
             if state["review_count"] >= 4:
                 log_update(state, f"Max review attempts reached. Forced approval of functional changes: {output}")
-                state["status"] = "COMMITTING"
+                state["status"] = "SUBMITTING"
                 state["review_feedback"] = None
             else:
                 state["status"] = "CODING"

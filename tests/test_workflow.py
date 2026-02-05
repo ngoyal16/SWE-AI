@@ -14,8 +14,8 @@ class TestWorkflow(unittest.TestCase):
     @patch("agent.workflow_pkg.manager.programmer_node")
     @patch("agent.workflow_pkg.manager.tester_node")
     @patch("agent.workflow_pkg.manager.reviewer_node")
-    @patch("agent.workflow_pkg.manager.commit_msg_node")
-    def test_manager_orchestration_with_init(self, mock_commit_msg, mock_reviewer, mock_tester, mock_programmer, mock_branch_naming, mock_critic, mock_planner, mock_env_setup, mock_init_node):
+    @patch("agent.workflow_pkg.manager.submit_node")
+    def test_manager_orchestration_with_init(self, mock_submit, mock_reviewer, mock_tester, mock_programmer, mock_branch_naming, mock_critic, mock_planner, mock_env_setup, mock_init_node):
         # Setup transitions
         def init_side_effect(state):
             state["status"] = "ENV_SETUP" # Changed transition
@@ -47,9 +47,9 @@ class TestWorkflow(unittest.TestCase):
             state["status"] = "REVIEWING"
             return state
         def reviewer_side_effect(state):
-            state["status"] = "COMMITTING"
+            state["status"] = "SUBMITTING"
             return state
-        def commit_msg_side_effect(state):
+        def submit_side_effect(state):
             state["status"] = "COMPLETED"
             return state
 
@@ -61,7 +61,7 @@ class TestWorkflow(unittest.TestCase):
         mock_programmer.side_effect = programmer_side_effect
         mock_tester.side_effect = tester_side_effect
         mock_reviewer.side_effect = reviewer_side_effect
-        mock_commit_msg.side_effect = commit_msg_side_effect
+        mock_submit.side_effect = submit_side_effect
 
         manager = WorkflowManager()
         initial_state: AgentState = {
@@ -95,8 +95,8 @@ class TestWorkflow(unittest.TestCase):
     @patch("agent.workflow_pkg.manager.programmer_node")
     @patch("agent.workflow_pkg.manager.tester_node")
     @patch("agent.workflow_pkg.manager.reviewer_node")
-    @patch("agent.workflow_pkg.manager.commit_msg_node")
-    def test_manager_review_mode_pause(self, mock_commit_msg, mock_reviewer, mock_tester, mock_programmer, mock_branch_naming, mock_critic, mock_planner, mock_env_setup, mock_init_node):
+    @patch("agent.workflow_pkg.manager.submit_node")
+    def test_manager_review_mode_pause(self, mock_submit, mock_reviewer, mock_tester, mock_programmer, mock_branch_naming, mock_critic, mock_planner, mock_env_setup, mock_init_node):
          # Test that it pauses at WAITING_FOR_USER
         def init_side_effect(state):
             state["status"] = "ENV_SETUP"
@@ -148,8 +148,8 @@ class TestWorkflow(unittest.TestCase):
     @patch("agent.workflow_pkg.manager.programmer_node")
     @patch("agent.workflow_pkg.manager.tester_node")
     @patch("agent.workflow_pkg.manager.reviewer_node")
-    @patch("agent.workflow_pkg.manager.commit_msg_node")
-    def test_manager_orchestration_tester_fail(self, mock_commit_msg, mock_reviewer, mock_tester, mock_programmer, mock_branch_naming, mock_critic, mock_planner, mock_env_setup, mock_init_node):
+    @patch("agent.workflow_pkg.manager.submit_node")
+    def test_manager_orchestration_tester_fail(self, mock_submit, mock_reviewer, mock_tester, mock_programmer, mock_branch_naming, mock_critic, mock_planner, mock_env_setup, mock_init_node):
         # Test the loop Programmer -> Tester -> Programmer
 
         # We need a counter to break the loop or simulate fix
@@ -183,9 +183,9 @@ class TestWorkflow(unittest.TestCase):
                 state["status"] = "REVIEWING"
             return state
         def reviewer_side_effect(state):
-            state["status"] = "COMMITTING"
+            state["status"] = "SUBMITTING"
             return state
-        def commit_msg_side_effect(state):
+        def submit_side_effect(state):
             state["status"] = "COMPLETED"
             return state
 
@@ -197,7 +197,7 @@ class TestWorkflow(unittest.TestCase):
         mock_programmer.side_effect = programmer_side_effect
         mock_tester.side_effect = tester_side_effect
         mock_reviewer.side_effect = reviewer_side_effect
-        mock_commit_msg.side_effect = commit_msg_side_effect
+        mock_submit.side_effect = submit_side_effect
 
         manager = WorkflowManager()
         initial_state: AgentState = {

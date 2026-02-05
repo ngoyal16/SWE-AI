@@ -12,8 +12,7 @@ from .nodes.branch import branch_naming_node
 from .nodes.programmer import programmer_node
 from .nodes.tester import tester_node
 from .nodes.reviewer import reviewer_node
-from .nodes.commit_msg import commit_msg_node
-from .nodes.pr_creator import pr_creation_node
+from .nodes.submit import submit_node
 
 def router_node(state: AgentState) -> AgentState:
     # Acts as an entry point to route based on existing status
@@ -35,8 +34,7 @@ class WorkflowManager:
         workflow.add_node("programmer", programmer_node)
         workflow.add_node("tester", tester_node)
         workflow.add_node("reviewer", reviewer_node)
-        workflow.add_node("commit_msg", commit_msg_node)
-        workflow.add_node("pr_creator", pr_creation_node)
+        workflow.add_node("submit", submit_node)
 
         workflow.add_edge(START, "router")
 
@@ -52,8 +50,7 @@ class WorkflowManager:
                 "CODING": "programmer",
                 "TESTING": "tester",
                 "REVIEWING": "reviewer",
-                "COMMITTING": "commit_msg",
-                "PR_CREATION": "pr_creator",
+                "SUBMITTING": "submit",
                 "WAITING_FOR_USER": END,
                 "COMPLETED": END,
                 "FAILED": END
@@ -108,14 +105,13 @@ class WorkflowManager:
             "reviewer",
             lambda state: state["status"],
             {
-                "COMMITTING": "commit_msg",
+                "SUBMITTING": "submit",
                 "CODING": "programmer",
                 "FAILED": END
             }
         )
 
-        workflow.add_edge("commit_msg", "pr_creator")
-        workflow.add_edge("pr_creator", END)
+        workflow.add_edge("submit", END)
 
         return workflow.compile()
 
