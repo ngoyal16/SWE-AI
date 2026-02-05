@@ -22,6 +22,7 @@ from .human_help_tool import (
     create_mark_task_completed_tool,
 )
 from .git_tools import create_git_tools
+from .navigation_tool import create_navigation_tools
 
 __all__ = [
     # Base tools
@@ -49,4 +50,6 @@ __all__ = [
     "create_mark_task_completed_tool",
     # Git
     "create_git_tools",
+    # Navigation
+    "create_navigation_tools",
 ]

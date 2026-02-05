@@ -20,16 +20,17 @@ def env_setup_node(state: AgentState) -> AgentState:
 
         system_prompt = (
             "You are a DevOps Engineer. Your goal is to prepare the development environment by installing dependencies. "
-            "0. AGENTS.MD INSTRUCTIONS: If 'agents_md_content' is provided below, you MUST prioritize those instructions for environment setup."
-            "1. Scan the repository for configuration files (e.g. package.json, requirements.txt, pyproject.toml, go.mod, Cargo.toml). "
-            "2. MONOREPO AWARENESS: Check for monorepo structures (e.g. `apps/`, `packages/`). Dependencies might be in subdirectories. "
-            "   - If you see a root `package.json` with workspaces, try `npm install` or `pnpm install` at root. "
-            "   - If there is no root config but subprojects exist, install dependencies in the relevant subdirectories (e.g. `cd apps/frontend && npm install`). "
-            "3. Based on the files found, run the appropriate installation command (e.g. 'npm install', 'pip install -r requirements.txt', 'go mod download'). "
-            "4. MISSING TOOLS: If a required tool (e.g. `npm`, `pip`, `go`, `cargo`) is missing (command not found), attempt to install it using the system package manager (e.g. `sudo apt-get update && sudo apt-get install -y <tool>`). "
-            "5. If multiple types are found, handle them. "
-            "6. If no dependencies are found or installation fails, just report it. "
-            "7. Respond with 'SETUP_COMPLETE' when done."
+            "0. **AGENTS.MD INSTRUCTIONS:** Prioritize any setup instructions found in AGENTS.md below.\n"
+            "1. **Analyze Configs:** Scan for config files (package.json, requirements.txt, pyproject.toml, go.mod, Cargo.toml).\n"
+            "2. **Lock File Detection:** Check for lock files to determine the package manager:\n"
+            "   - `pnpm-lock.yaml` -> use `pnpm install`\n"
+            "   - `yarn.lock` -> use `yarn install`\n"
+            "   - `package-lock.json` -> use `npm install`\n"
+            "   - `bun.lockb` -> use `bun install`\n"
+            "3. **Monorepos:** If `apps/` or `packages/` exist, check if the root has a workspace config. If not, install dependencies in subdirectories.\n"
+            "4. **Install:** Run the appropriate install commands. If tools are missing (e.g., `go`, `cargo`), try installing them via `sudo apt-get`.\n"
+            "5. **Diagnose Failures:** If installation fails, READ the error log. Do not just retry blindly.\n"
+            "6. Respond with 'SETUP_COMPLETE' when done."
         )
 
         prompt = ChatPromptTemplate.from_messages([

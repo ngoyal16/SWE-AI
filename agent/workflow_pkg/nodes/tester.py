@@ -2,7 +2,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 
 from ...common.llm import get_llm
-from ...tools import create_filesystem_tools
+from ...tools import create_filesystem_tools, create_navigation_tools
 from ...callbacks import SessionCallbackHandler
 from ..state import AgentState, log_update
 from ..utils import get_active_sandbox
@@ -16,8 +16,10 @@ def tester_node(state: AgentState) -> AgentState:
         sandbox = get_active_sandbox(state["session_id"])
         # Tester needs filesystem tools to read config and run commands
         fs_tools = create_filesystem_tools(sandbox)
-        # We explicitly need run_command
-        tools = [t for t in fs_tools if t.name in ["read_file", "list_files", "run_command"]]
+        nav_tools = create_navigation_tools(sandbox)
+
+        # We explicitly need run_command and navigation tools
+        tools = [t for t in fs_tools if t.name in ["read_file", "list_files", "run_command"]] + nav_tools
 
         system_prompt = (
             "You are a QA Automation Engineer. Your goal is to ensure the codebase passes all tests and meets the plan requirements. "
@@ -26,12 +28,12 @@ def tester_node(state: AgentState) -> AgentState:
             "3. Run the tests using 'run_command'. "
             "4. Analyze the output. "
             "   - If tests PASS: Respond with 'TESTS_PASSED'. "
-            "   - If tests FAIL: Respond with 'TESTS_FAILED' followed by a summary of the errors to be fixed.\n\n"
+            "   - If tests FAIL: Read any error logs mentioned in the output. Respond with 'TESTS_FAILED' followed by a detailed summary of the errors.\n\n"
             "### GOAL ADHERENCE & EXIT CRITERIA\n"
             "Sometimes there are no formal tests, or the goal is just to create a file.\n"
-            "- If the goal was to create a file or implement a feature, and you verify it exists and looks correct, treat that as a PASS.\n"
-            "- **IMPORTANT:** If the file already exists (e.g. 'File X already exists'), this is usually a SUCCESS, not a failure, unless the content is wrong.\n"
-            "- Do not ask the programmer to 'create it' if it is already there. Just verify it works.\n"
+            "- **No Tests Found:** If no test suite exists, create a temporary script (e.g., `verify_change.py`) to verify the specific changes work as expected. Run it, then delete it.\n"
+            "- **Verification:** If the goal was to create a file/feature, and you verify it exists and functions correctly, treat that as a PASS.\n"
+            "- **Existing Files:** If the file already exists, this is usually a SUCCESS, not a failure. Do NOT ask the programmer to 'create it' again.\n"
             "- If the plan is complete, respond 'TESTS_PASSED'."
         )
 
